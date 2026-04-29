@@ -25,7 +25,7 @@ One page or UI state within a flow — e.g., "Cart page", "Payment form", "Order
 ### Finding
 An identified issue at a step. Can be:
 - **Automated** — detected by axe-core without AI or human involvement
-- **AI-suggested** — flagged by Claude, pending triage
+- **AI-suggested** — flagged by Gemini, pending triage
 - **Manual** — added directly by the reviewer
 
 Every finding is tagged to either a heuristic (H1–H10) or a WCAG success criterion, given a severity, and linked to an element on the page where applicable.
@@ -87,7 +87,7 @@ Conformance levels: **A** (minimum), **AA** (recommended, legally required in ma
 | Database | SQLite via Drizzle ORM | Local-first, zero infra, portable |
 | Browser automation | Playwright | Full page screenshots, DOM access, JS execution |
 | Automated a11y | axe-core | Industry-standard WCAG scanner, ~30-40% issue coverage |
-| AI analysis | Claude API (claude-sonnet-4-6) | Vision + reasoning for heuristic and a11y review |
+| AI analysis | Google Gemini API (gemini-2.0-flash) | Vision + reasoning, free tier via Google AI Studio |
 | UI components | Tailwind CSS + shadcn/ui | Fast, accessible, consistent |
 | PDF export | Puppeteer / react-pdf | Render report as styled PDF |
 | JIRA export | Atlassian REST API v3 | Create issues, set labels, link to epics |
@@ -182,7 +182,7 @@ steps {
   screenshot_path: text       // stored locally
   dom_snapshot_path: text     // trimmed HTML for AI context
   axe_results_path: text      // raw axe JSON
-  analyzed_at: timestamp      // when Claude last ran
+  analyzed_at: timestamp      // when Gemini last ran
   created_at: timestamp
 }
 
@@ -235,7 +235,7 @@ When a reviewer navigates to a step, the following fires automatically:
    - Each violation includes: element selector, impact level, help URL
    - These are immediately saved as `source: "automated"` findings with `status: "confirmed"`
 
-3. **Claude analysis** fires with a structured prompt (see AI section below)
+3. **Gemini analysis** fires with a structured prompt (see AI section below)
    - Returns JSON array of suggested findings
    - Saved as `source: "ai"`, `status: "pending"`
    - Displayed in the AI Suggestions tray, sorted by confidence desc
@@ -284,7 +284,7 @@ When a reviewer navigates to a step, the following fires automatically:
 
 Toggling "Checklist mode" switches the right panel to a full list of all 10 heuristics + all WCAG criteria. For each item the reviewer can see:
 - How many findings already exist for it at this step
-- A "Focus analyze" button — re-runs Claude with a targeted prompt specifically for that heuristic/criterion
+- A "Focus analyze" button — re-runs Gemini with a targeted prompt specifically for that heuristic/criterion
 - Quick "No issues found" dismissal to mark it as reviewed
 
 This ensures systematic coverage so nothing is skipped.
@@ -293,9 +293,19 @@ This ensures systematic coverage so nothing is skipped.
 
 ## AI Integration
 
-### Claude Prompt Design
+### Provider
 
-**System prompt** (sent once, cached):
+**Default: Google Gemini 2.0 Flash** via the Google AI Studio free tier.
+
+- Free API key: [aistudio.google.com](https://aistudio.google.com) — no credit card required
+- Rate limits: 15 requests/minute, 1,500 requests/day — sufficient for audit sessions
+- Vision-capable: accepts screenshots as inline base64 images
+- BYOK: other users supply their own Gemini API key via the app's settings screen
+- Future: the AI layer is thin enough to swap to another vision-capable provider (OpenAI, Anthropic, Ollama) without touching the rest of the app
+
+### Gemini Prompt Design
+
+**System prompt** (sent once per session):
 
 ```
 You are a senior UX researcher and accessibility specialist conducting a formal heuristic evaluation.
@@ -373,10 +383,10 @@ What specific evidence do you see in this page that either confirms or rules out
 
 ### Token + Cost Management
 
-- System prompt is cached (using `cache_control: ephemeral`) — charged once per session, not per step
+- **Free tier**: Gemini 2.0 Flash via Google AI Studio — $0 cost up to rate limits
 - DOM snapshot is trimmed to semantic HTML only — `<nav>`, `<main>`, `<header>`, `<footer>`, headings, buttons, inputs, links, images (with alt text). Scripts, styles, and SVG paths stripped.
 - Screenshot is sent as base64 at medium quality (1280px wide, 80% JPEG) — sufficient for visual analysis
-- Estimated cost per step: ~$0.01-0.03 depending on page complexity
+- Estimated cost per step on paid tier: ~$0.001-0.005 (Gemini Flash is significantly cheaper than Claude/GPT-4o even when not free)
 
 ---
 
@@ -453,7 +463,7 @@ JIRA connection is configured per-session (base URL, project key, API token stor
 
 1. Workspace loads: screenshot captured, axe scan runs, Claude analyzes
 2. Automated findings appear immediately in the Automated section (confirmed)
-3. AI suggestions appear sorted by confidence
+3. AI suggestions (from Gemini) appear sorted by confidence
 4. Reviewer triages AI suggestions: confirm / edit+confirm / dismiss
 5. Reviewer optionally adds manual findings
 6. Reviewer clicks "Next step" — repeats for each step in the flow
@@ -477,12 +487,17 @@ From the session overview, click "Generate Report". Choose:
 Stored in `.env.local`:
 
 ```
-ANTHROPIC_API_KEY=
+# Required — get a free key at aistudio.google.com
+GEMINI_API_KEY=
+
+# Optional — only needed for JIRA export
 JIRA_BASE_URL=
 JIRA_PROJECT_KEY=
 JIRA_API_TOKEN=
 JIRA_USER_EMAIL=
 ```
+
+On first run, if `GEMINI_API_KEY` is not set, the app shows a setup screen prompting the user to enter their key. The key is written to `.env.local` and never leaves the local machine.
 
 ---
 
