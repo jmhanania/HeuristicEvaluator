@@ -1,203 +1,296 @@
-# HeuristicEvaluator — Product Specification
+# HeuristicEvaluator: Product Specification
 
-## Overview
+## What This Is
 
-HeuristicEvaluator is a web-based tool for conducting structured UX audits of any website. It combines automated scanning, AI-assisted analysis, and guided manual review to evaluate a site against two industry-standard frameworks:
-
-- **NNG's 10 Usability Heuristics** (Jakob Nielsen)
-- **WCAG 2.1** accessibility guidelines (levels A, AA, AAA)
-
-Audits are organized into **sessions** → **flows** → **steps**. At each step you review a page, triage AI suggestions, confirm automated violations, and add manual findings. At the end you export a structured report to PDF or JIRA.
+HeuristicEvaluator is a local-first, AI-augmented UX audit platform. It bridges the gap between raw code scanners (axe-core) and static clipboard tools (Heurix.io). The core idea: a senior researcher's reasoning layer, powered by Gemini 2.0 Flash, applied systematically to screenshots and DOM snapshots you capture yourself.
 
 ---
 
-## Core Concepts
+## Competitive Position
 
-### Session
-A single audit engagement. Has a name, target base URL, and status (draft / complete).
+| Tool | Automated Scanning | AI Analysis | Authenticated Flows | Audit Profiles | Cost |
+|---|---|---|---|---|---|
+| axe-core | WCAG only | None | Yes | None | Free |
+| Heurix.io | None | None | Manual only | NNG only | Free |
+| Baymard UX-Ray | None | Ecommerce only, 95% acc. | Yes | Ecommerce only | Paid |
+| **HeuristicEvaluator** | WCAG 2.2 + codified heuristics | Gemini (ruthless critic mode) | Yes, via bookmarklet | NNG, Ecommerce, WCAG-only | Free |
 
-### Flow
-A user journey within a session — e.g., "Checkout", "Onboarding", "Search & Filter". A session can have multiple flows.
+### Key Differentiators
 
-### Step
-One page or UI state within a flow — e.g., "Cart page", "Payment form", "Order confirmation". Each step has a URL and a screenshot captured at review time.
-
-### Finding
-An identified issue at a step. Can be:
-- **Automated** — detected by axe-core without AI or human involvement
-- **AI-suggested** — flagged by Gemini, pending triage
-- **Manual** — added directly by the reviewer
-
-Every finding is tagged to either a heuristic (H1–H10) or a WCAG success criterion, given a severity, and linked to an element on the page where applicable.
+- Works on authenticated pages without storing credentials or tokens.
+- Captures happen in the user's own browser: no server-side browser management.
+- Every AI finding requires evidence: a DOM snippet or bounding box. No hallucinations logged silently.
+- Audit Profiles let you swap the evaluation framework per session.
+- Privacy redaction happens before anything leaves the machine.
 
 ---
 
-## Evaluation Frameworks
+## Audit Profiles
 
-### NNG 10 Usability Heuristics
+A profile defines which heuristic framework the AI uses and which codified checks run. Each session selects exactly one profile.
 
-| ID | Name |
-|----|------|
-| H1 | Visibility of System Status |
-| H2 | Match Between System and the Real World |
-| H3 | User Control and Freedom |
-| H4 | Consistency and Standards |
-| H5 | Error Prevention |
-| H6 | Recognition Rather Than Recall |
-| H7 | Flexibility and Efficiency of Use |
-| H8 | Aesthetic and Minimalist Design |
-| H9 | Help Users Recognize, Diagnose, and Recover from Errors |
-| H10 | Help and Documentation |
+### Profile: NNG Standard
 
-### WCAG 2.1 — POUR Principles
+Evaluates against Nielsen's 10 Usability Heuristics. Suitable for any web product.
 
-**Perceivable** — Information must be presentable to users in ways they can perceive.
-Key criteria: text alternatives (1.1.1), captions (1.2.x), adaptable content (1.3.x), distinguishable content (1.4.x)
+| ID | Heuristic | Codified Checks |
+|----|-----------|-----------------|
+| H1 | Visibility of System Status | Loading states, progress indicators present in DOM |
+| H2 | Match Between System and Real World | None (AI only) |
+| H3 | User Control and Freedom | Back links, cancel buttons, undo paths in DOM |
+| H4 | Consistency and Standards | Repeated CTA labels consistent, heading hierarchy valid |
+| H5 | Error Prevention | All inputs have labels, required fields marked, ARIA roles present |
+| H6 | Recognition Rather Than Recall | Navigation persistent, breadcrumbs on deep pages |
+| H7 | Flexibility and Efficiency of Use | None (AI only) |
+| H8 | Aesthetic and Minimalist Design | None (AI only) |
+| H9 | Help Users Recognize and Recover from Errors | Error messages exist near failed inputs |
+| H10 | Help and Documentation | None (AI only) |
 
-**Operable** — UI components and navigation must be operable.
-Key criteria: keyboard accessible (2.1.x), enough time (2.2.x), seizures (2.3.x), navigable (2.4.x), input modalities (2.5.x)
+Codified checks run deterministically on the DOM. They never call the AI. AI handles the remaining heuristics where judgment is required.
 
-**Understandable** — Information and operation must be understandable.
-Key criteria: readable (3.1.x), predictable (3.2.x), input assistance (3.3.x)
+### Profile: Ecommerce (Baymard)
 
-**Robust** — Content must be robust enough for assistive technologies.
-Key criteria: compatible (4.1.x)
+Replaces NNG's generic principles with Baymard Institute's research-backed ecommerce guidelines. Baymard has documented 769 ecommerce UX guidelines across 200,000+ hours of research. This profile covers the subset where deterministic or AI-assisted checks are reliable.
 
-Conformance levels: **A** (minimum), **AA** (recommended, legally required in many jurisdictions), **AAA** (enhanced)
+Codified checks specific to this profile:
 
-### Severity Scale (shared across both frameworks)
+- Every form field has a persistent label (not placeholder-only).
+- Touch targets are at minimum 24x24px (WCAG 2.5.8) and ideally 44x44px (Baymard standard).
+- Cart persists across sessions (checked via localStorage/cookie presence heuristic).
+- Checkout form does not clear on validation error.
+- Password fields have a show/hide toggle.
+- Primary CTA is visually distinct from secondary actions.
 
-| Level | Meaning |
-|-------|---------|
-| Critical | Blocks the user from completing a task |
-| Major | Significantly impairs the experience |
-| Minor | Friction or confusion but task is completable |
-| Info | Observation or best-practice note |
+AI prompt for this profile instructs Gemini to apply Baymard's opinionated stance: inline validation timing, field label positioning, trust signal placement, guest checkout availability, and form recovery after errors. The AI cites the relevant Baymard principle category rather than NNG heuristic IDs.
+
+### Profile: WCAG 2.2 Only
+
+Skips heuristic evaluation entirely. Runs axe-core plus the codified WCAG 2.2 checks below, with AI used only to identify violations axe-core misses.
+
+WCAG 2.2 additions over 2.1 covered by this profile:
+
+| Criterion | Level | Description |
+|---|---|---|
+| 2.4.11 Focus Not Obscured (Minimum) | AA | Focused component not fully hidden by sticky content |
+| 2.4.12 Focus Not Obscured (Enhanced) | AAA | Focused component fully visible |
+| 2.4.13 Focus Appearance | AAA | Focus indicator meets size and contrast requirements |
+| 2.5.7 Dragging Movements | AA | All drag actions have a single-pointer alternative |
+| 2.5.8 Target Size (Minimum) | AA | Touch targets at least 24x24px |
+| 3.2.6 Consistent Help | A | Help mechanisms in consistent location |
+| 3.3.7 Redundant Entry | A | Previously entered info not re-requested |
+| 3.3.8 Accessible Authentication (Minimum) | AA | No cognitive test required to authenticate |
+| 3.3.9 Accessible Authentication (Enhanced) | AAA | No exception to above |
 
 ---
 
-## Application Architecture
+## Architecture
+
+### Simplified Snapshot Model
+
+Server-side browser management (Playwright running inside Next.js) creates significant operational complexity: process lifecycle, port management, memory limits, and CDP connection handling. This tool avoids all of it.
+
+Instead: the user's own browser captures the page. A bookmarklet (or uploaded file) sends a snapshot to the app's local API. The app never launches or manages a browser.
+
+```
+User's Browser                  HeuristicEvaluator (localhost:3000)
+     |                                      |
+  [Bookmarklet clicked]                     |
+     | runs axe-core locally                |
+     | captures screenshot                  |
+     | shows redaction preview              |
+     | user redacts, confirms               |
+     |------- POST /api/snapshot ---------->|
+     |        { html, screenshot,           |
+     |          axeResults, stepId,         |
+     |          url, captureMethod }        |
+     |                                      |
+     |                          stores snapshot
+     |                          sends to Gemini
+     |                          returns findings
+     |<------ { findings } ----------------|
+```
 
 ### Tech Stack
 
 | Layer | Choice | Rationale |
-|-------|--------|-----------|
+|---|---|---|
 | Framework | Next.js 15 (App Router) | Full-stack, server actions, streaming UI |
-| Language | TypeScript | Type safety for complex domain models |
+| Language | TypeScript | Type safety across domain models |
 | Database | SQLite via Drizzle ORM | Local-first, zero infra, portable |
-| Browser automation | Playwright | Full page screenshots, DOM access, JS execution |
-| Automated a11y | axe-core | Industry-standard WCAG scanner, ~30-40% issue coverage |
-| AI analysis | Google Gemini API (gemini-2.0-flash) | Vision + reasoning, free tier via Google AI Studio |
-| UI components | Tailwind CSS + shadcn/ui | Fast, accessible, consistent |
-| PDF export | Puppeteer / react-pdf | Render report as styled PDF |
-| JIRA export | Atlassian REST API v3 | Create issues, set labels, link to epics |
+| Automated a11y | axe-core (runs in bookmarklet) | Client-side WCAG scanning, no server needed |
+| AI analysis | Google Gemini 2.0 Flash | Vision-capable, free tier, 1500 req/day |
+| UI components | Tailwind CSS + shadcn/ui | Accessible, consistent |
+| PDF export | react-pdf | Styled report generation |
 
 ### Project Structure
 
 ```
 /
 ├── app/
-│   ├── (dashboard)/
-│   │   └── page.tsx              # Session list / landing
+│   ├── page.tsx                          # Dashboard: session list
 │   ├── sessions/
-│   │   ├── new/page.tsx          # Create session + first flow
+│   │   ├── new/page.tsx                  # Create session + first flow
 │   │   └── [sessionId]/
-│   │       ├── page.tsx          # Session overview
-│   │       └── flows/
-│   │           └── [flowId]/
-│   │               ├── page.tsx           # Flow overview
-│   │               └── steps/
-│   │                   └── [stepId]/
-│   │                       └── page.tsx   # Evaluation workspace
-│   └── reports/
-│       └── [sessionId]/page.tsx  # Report view + export
+│   │       ├── page.tsx                  # Session overview
+│   │       └── flows/[flowId]/
+│   │           ├── page.tsx              # Flow overview
+│   │           └── steps/[stepId]/
+│   │               └── page.tsx          # Evaluation workspace
+│   ├── reports/[sessionId]/page.tsx      # Report view + PDF export
+│   └── api/
+│       └── snapshot/route.ts             # POST endpoint for bookmarklet
 ├── components/
 │   ├── workspace/
-│   │   ├── SitePreview.tsx       # Screenshot panel with annotations
-│   │   ├── FindingsPanel.tsx     # Right-side triage panel
-│   │   ├── SuggestionCard.tsx    # AI suggestion with confirm/edit/dismiss
-│   │   ├── FindingForm.tsx       # Manual finding form
-│   │   └── CoverageBar.tsx       # H1-H10 + WCAG coverage indicators
-│   ├── report/
-│   │   ├── ReportSummary.tsx
-│   │   ├── FindingsList.tsx
-│   │   └── ExportControls.tsx
-│   └── shared/
+│   │   ├── SitePreview.tsx               # Screenshot with annotation pins
+│   │   ├── FindingsPanel.tsx             # Triage panel
+│   │   ├── SuggestionCard.tsx            # AI finding with evidence
+│   │   ├── RedactionCanvas.tsx           # Pre-send privacy redaction
+│   │   └── FindingForm.tsx               # Manual finding entry
+│   └── report/
+│       ├── ReportSummary.tsx
+│       └── FindingsList.tsx
 ├── server/
-│   ├── actions/
-│   │   ├── sessions.ts
-│   │   ├── flows.ts
-│   │   ├── steps.ts
-│   │   └── findings.ts
 │   ├── ai/
-│   │   ├── analyze.ts            # Claude API integration
-│   │   └── prompts.ts            # System + user prompt templates
-│   ├── automation/
-│   │   ├── screenshot.ts         # Playwright page capture
-│   │   └── axe.ts                # axe-core DOM scan
-│   └── export/
-│       ├── pdf.ts
-│       └── jira.ts
+│   │   ├── analyze.ts                    # Gemini API call
+│   │   └── prompts.ts                    # Profile-specific prompts
+│   ├── codified/
+│   │   ├── nng.ts                        # Deterministic NNG checks
+│   │   ├── baymard.ts                    # Deterministic Baymard checks
+│   │   └── wcag22.ts                     # Deterministic WCAG 2.2 checks
+│   └── export/pdf.ts
 ├── db/
-│   ├── schema.ts                 # Drizzle schema
+│   ├── schema.ts
 │   └── migrations/
 └── lib/
-    ├── heuristics.ts             # NNG heuristic definitions
-    └── wcag.ts                   # WCAG criterion definitions
+    ├── heuristics.ts                     # NNG + Baymard definitions
+    └── wcag.ts                           # WCAG 2.2 criterion definitions
 ```
+
+---
+
+## Capture Flows
+
+### Flow A: Bookmarklet (Primary, Works on Authenticated Pages)
+
+This is the main capture path. It works on any page the user can view in their browser, including pages behind login.
+
+**Setup (once):**
+1. User opens the app's Settings page.
+2. They drag a "Capture Page" link to their bookmarks bar. The bookmarklet is a self-contained script served by the app.
+
+**Capture (per step):**
+1. User navigates to the target page in their browser and logs in as needed.
+2. User clicks the bookmarklet. A sidebar overlay appears on the page.
+3. The bookmarklet runs axe-core against the live DOM and shows a result count.
+4. A full-page screenshot renders in the sidebar as a canvas element.
+5. The user selects which audit session and step this capture belongs to.
+6. **Redaction step:** A toolbar appears above the screenshot. The user drags rectangles over any sensitive content (names, emails, financial data, PII). Redacted regions are filled black before the image is encoded.
+7. User clicks "Send to HeuristicEvaluator."
+8. The bookmarklet POSTs to `localhost:3000/api/snapshot`:
+
+```json
+{
+  "stepId": "01J...",
+  "url": "https://example.com/checkout",
+  "captureMethod": "bookmarklet",
+  "html": "<trimmed semantic HTML>",
+  "screenshot": "<base64 JPEG, redacted>",
+  "axeResults": { "violations": [...], "passes": [...] }
+}
+```
+
+9. The app processes the snapshot, runs codified checks, calls Gemini, and returns findings.
+10. The sidebar shows a summary: "12 findings. Open workspace to triage."
+
+**What the bookmarklet never captures:**
+- Passwords or form field values (stripped before POST).
+- `data-*` attributes (stripped).
+- Cookie or localStorage contents.
+- Query string parameters that look like tokens (heuristic: strips params longer than 20 chars).
+
+### Flow B: Manual Screenshot Upload (Fallback)
+
+Use this when the bookmarklet isn't practical: mobile audits, remote desktop sessions, staging behind VPN, or any situation where you can't run a bookmarklet.
+
+1. User navigates to the step in the workspace.
+2. They click "Upload Screenshot" instead of "Capture with bookmarklet."
+3. They drag a PNG or JPG onto the upload area.
+4. **Redaction step:** Same canvas redaction tool as Flow A. User marks sensitive regions before analysis.
+5. Optionally, they paste HTML into a text field. Without HTML, codified checks and axe-core don't run.
+6. User clicks "Analyze."
+7. App sends screenshot (and HTML if provided) to Gemini.
+8. Step is flagged in the report as `capture_method: "manual_upload"` and noted as lacking automated scan data where applicable.
+
+### What Leaves the Machine
+
+Transparency is not optional. The app shows a persistent "Data sent to Gemini" indicator on every step that has been analyzed. Users can click it to see exactly what was transmitted.
+
+| Data | Stays Local | Sent to Gemini | Notes |
+|---|---|---|---|
+| Screenshots | Yes, on disk | Yes, on analysis | User redacts before send |
+| DOM snapshot | Yes, on disk | Yes, scrubbed | PII-stripped before send |
+| axe-core results | Yes, in DB | Summary only | Violations list, no element values |
+| Findings | Yes, in SQLite | No | Never leaves machine |
+| Session cookies | Never stored | No | Bookmarklet uses browser's existing session |
+| Credentials | Never touched | No | User logs in themselves |
+
 
 ---
 
 ## Data Model
 
 ```typescript
-// Session — top-level audit
+// Session: top-level audit engagement
 sessions {
   id: text (ulid)
   name: text
   target_url: text
   description: text
+  audit_profile: "nng" | "ecommerce_baymard" | "wcag22_only"
   status: "draft" | "complete"
   created_at: timestamp
   updated_at: timestamp
 }
 
-// Flow — a user journey
+// Flow: a named user journey within a session
 flows {
   id: text (ulid)
-  session_id: text → sessions.id
+  session_id: text -> sessions.id
   name: text
   description: text
   order: integer
   created_at: timestamp
 }
 
-// Step — a page within a flow
+// Step: one page or UI state within a flow
 steps {
   id: text (ulid)
-  flow_id: text → flows.id
+  flow_id: text -> flows.id
   name: text
   url: text
   order: integer
-  screenshot_path: text       // stored locally
-  dom_snapshot_path: text     // trimmed HTML for AI context
-  axe_results_path: text      // raw axe JSON
-  analyzed_at: timestamp      // when Gemini last ran
+  capture_method: "bookmarklet" | "manual_upload"
+  screenshot_path: text        // relative path, local only
+  dom_snapshot_path: text      // scrubbed HTML, local only
+  axe_results_path: text       // raw axe JSON, local only
+  has_redactions: boolean      // true if user drew redaction boxes
+  analyzed_at: timestamp
   created_at: timestamp
 }
 
-// Finding — a single issue
+// Finding: one identified issue at a step
 findings {
   id: text (ulid)
-  step_id: text → steps.id
-  source: "automated" | "ai" | "manual"
+  step_id: text -> steps.id
+  source: "codified" | "ai" | "manual"
   status: "confirmed" | "dismissed" | "pending"
 
-  // Framework
-  framework: "nng" | "wcag"
-  heuristic_id: integer         // 1-10, if framework = nng
-  wcag_criterion: text          // e.g. "1.1.1", if framework = wcag
-  wcag_level: "A" | "AA" | "AAA"
+  // Framework (mutually exclusive)
+  framework: "nng" | "baymard" | "wcag"
+  heuristic_id: integer | null         // H1-H10 for nng
+  baymard_category: text | null        // e.g. "Form Labels", "Checkout Persistence"
+  wcag_criterion: text | null          // e.g. "2.5.8"
+  wcag_level: "A" | "AA" | "AAA" | null
 
   // Content
   title: text
@@ -205,89 +298,62 @@ findings {
   recommendation: text
   severity: "critical" | "major" | "minor" | "info"
 
-  // Location
-  element_selector: text
-  element_screenshot_path: text
+  // Evidence: required for all AI findings, optional for manual
+  evidence_dom_snippet: text | null    // exact HTML excerpt supporting the finding
+  evidence_bbox: text | null           // JSON {x, y, width, height} in screenshot coords
+  ai_confidence: "high" | "medium" | "low" | null
 
-  // AI metadata
-  ai_confidence: "high" | "medium" | "low"
-  dismiss_reason: text
+  // Triage
+  dismiss_reason: text | null          // why reviewer dismissed it
+  rejection_reason: text | null        // why AI finding was wrong (tracks hallucinations)
 
   created_at: timestamp
 }
 ```
 
+The `rejection_reason` field is distinct from `dismiss_reason`. Dismiss means "not relevant to this audit." Rejection means "the AI was factually wrong." Tracking rejections per session lets us measure AI reliability over time and surface patterns in what the model gets wrong.
+
 ---
 
-## Evaluation Workspace — Detailed Flow
+## Codified Checks vs. AI Analysis
 
-### Step Entry
+These two layers never overlap. Codified checks run first, deterministically, on the DOM. Their results are auto-confirmed with no AI call. AI then analyzes only what codified checks can't reach.
 
-When a reviewer navigates to a step, the following fires automatically:
+### What Codified Checks Cover
 
-1. **Playwright** loads the step URL in a headless browser
-   - Captures full-page screenshot
-   - Captures trimmed DOM (semantic HTML, no scripts/styles)
-   - Captures interactive element map (buttons, inputs, links, images)
+Codified checks are implemented in `server/codified/`. Each check returns a structured finding or null.
 
-2. **axe-core** runs against the live DOM
-   - Returns violations keyed to WCAG criteria
-   - Each violation includes: element selector, impact level, help URL
-   - These are immediately saved as `source: "automated"` findings with `status: "confirmed"`
+**NNG profile checks:**
+- H1: `<progress>`, loading spinners, skeleton screens present during async states
+- H3: Cancel buttons, "Back" links, and undo affordances present in multi-step flows
+- H4: Repeated interactive elements (buttons, links) use consistent labels across steps
+- H5: Every `<input>` and `<textarea>` has an associated `<label>` or `aria-label`
+- H5: Required fields marked with `required` attribute or visible asterisk
+- H6: `<nav>` present on all non-landing pages, breadcrumbs on pages 3+ levels deep
+- H9: Error containers exist adjacent to form inputs, not only at page level
 
-3. **Gemini analysis** fires with a structured prompt (see AI section below)
-   - Returns JSON array of suggested findings
-   - Saved as `source: "ai"`, `status: "pending"`
-   - Displayed in the AI Suggestions tray, sorted by confidence desc
+**Baymard profile adds:**
+- No input uses placeholder as its only label
+- Touch targets meet 44x44px (measured via computed styles in DOM)
+- Password inputs have an adjacent show/hide toggle button
+- Primary CTA has higher visual weight than secondary actions (class/style heuristic)
+- Checkout form fields are not cleared on validation failure (checked via form attribute patterns)
 
-### Workspace Layout
+**WCAG 2.2 profile adds (beyond axe-core):**
+- 2.5.8: Target size check on all interactive elements (24x24px minimum)
+- 3.2.6: Help link in consistent DOM position across steps
+- 3.3.7: Fields pre-filled with previously entered data where applicable
+- 3.3.8: No CAPTCHA or puzzle present on authentication forms
 
-```
-┌───────────────────────────────┬──────────────────────────────────┐
-│  SITE PREVIEW                 │  FINDINGS PANEL                  │
-│                               │                                  │
-│  [Full-page screenshot]       │  ▸ Automated (axe) — 3          │
-│                               │    All auto-confirmed            │
-│  Confirmed findings shown     │    WCAG 1.1.1 · WCAG 4.1.2 ...  │
-│  as numbered pins overlaid    │                                  │
-│  on screenshot elements.      │  ▸ AI Suggestions — 5 pending   │
-│                               │    sorted: high → medium → low   │
-│  AI pending suggestions       │    [Confirm] [Edit] [Dismiss ▾] │
-│  shown as dashed outlines.    │                                  │
-│                               │  ▸ My Findings — 1              │
-│                               │    [+ Add finding]              │
-│                               │                                  │
-│                               │  ─────────────────────────────  │
-│                               │  Coverage                        │
-│  Step 3 / 5                   │  NNG: H1 H2 H3 H5 H9 (5/10)   │
-│  "Payment Form"               │  WCAG: A ✓  AA partial  AAA —  │
-│                               │                                  │
-│  [← Cart]      [Confirm →]    │  [Reanalyze]   [Checklist mode] │
-└───────────────────────────────┴──────────────────────────────────┘
-```
+### What AI Covers
 
-### Triage Actions
+Gemini handles judgment calls that can't be reduced to DOM queries:
 
-**AI Suggestion card actions:**
-- **Confirm** — saves as `status: "confirmed"`, pins to screenshot
-- **Edit then Confirm** — opens inline form pre-filled with AI content, reviewer adjusts, then confirms
-- **Dismiss** — requires a reason (dropdown: "Not applicable", "False positive", "Duplicate", "Out of scope")
-
-**Manual finding:**
-- Click "+ Add finding"
-- Select framework (NNG / WCAG)
-- Select heuristic or criterion from searchable dropdown
-- Fill title, description, severity, optional element selector
-- Optionally click on screenshot to place an element pin
-
-### Checklist Mode
-
-Toggling "Checklist mode" switches the right panel to a full list of all 10 heuristics + all WCAG criteria. For each item the reviewer can see:
-- How many findings already exist for it at this step
-- A "Focus analyze" button — re-runs Gemini with a targeted prompt specifically for that heuristic/criterion
-- Quick "No issues found" dismissal to mark it as reviewed
-
-This ensures systematic coverage so nothing is skipped.
+- H2: Language matches users' mental models, not system terminology
+- H7: Shortcuts or power-user affordances present for expert users
+- H8: Page is visually cluttered or contains redundant content
+- Baymard: Trust signal placement, inline validation timing, error message tone
+- WCAG: Violations axe-core misses due to dynamic content or insufficient context
 
 ---
 
@@ -295,98 +361,147 @@ This ensures systematic coverage so nothing is skipped.
 
 ### Provider
 
-**Default: Google Gemini 2.0 Flash** via the Google AI Studio free tier.
+Google Gemini 2.0 Flash via Google AI Studio free tier. Free API key at aistudio.google.com. No credit card required. Rate limits: 15 requests/minute, 1,500 requests/day. Both are sufficient for audit sessions.
 
-- Free API key: [aistudio.google.com](https://aistudio.google.com) — no credit card required
-- Rate limits: 15 requests/minute, 1,500 requests/day — sufficient for audit sessions
-- Vision-capable: accepts screenshots as inline base64 images
-- BYOK: other users supply their own Gemini API key via the app's settings screen
-- Future: the AI layer is thin enough to swap to another vision-capable provider (OpenAI, Anthropic, Ollama) without touching the rest of the app
+BYOK: other users enter their own Gemini API key in the app's settings screen on first run. The key writes to `.env.local` and never leaves the local machine.
 
-### Gemini Prompt Design
+### System Prompt: Ruthless Critic Mode
 
-**System prompt** (sent once per session):
+The system prompt instructs Gemini to behave as a skeptical senior researcher, not a helpful assistant. It must not generate findings it can't support with evidence from the screenshot or DOM.
 
 ```
-You are a senior UX researcher and accessibility specialist conducting a formal heuristic evaluation.
+You are a senior UX researcher conducting a formal heuristic evaluation.
+Your job is to find real problems, not to generate observations.
 
-You are evaluating against:
+Rules you must follow without exception:
 
-NNG 10 USABILITY HEURISTICS:
-H1: Visibility of System Status — keep users informed about system state with timely feedback
-H2: Match Between System and Real World — speak users' language, follow real-world conventions
-H3: User Control and Freedom — provide clear exits and undo paths
-H4: Consistency and Standards — consistent words, actions, and UI patterns
-H5: Error Prevention — design to prevent problems before they occur
-H6: Recognition Rather Than Recall — minimize memory load, make options visible
-H7: Flexibility and Efficiency of Use — support both novice and expert users
-H8: Aesthetic and Minimalist Design — remove irrelevant or redundant content
-H9: Help Users Recognize, Diagnose, and Recover from Errors — plain-language error messages with solutions
-H10: Help and Documentation — easy to find, task-focused help when needed
+1. Every finding must include evidence. For visual issues, provide a bounding box
+   {x, y, width, height} in screenshot pixels. For structural issues, provide the
+   exact DOM snippet (element tag, key attributes, text content) that proves the
+   problem exists.
 
-WCAG 2.1 POUR PRINCIPLES:
-Perceivable: text alternatives, captions, adaptable, distinguishable
-Operable: keyboard accessible, enough time, no seizures, navigable
-Understandable: readable, predictable, input assistance
-Robust: compatible with assistive technologies
+2. If you cannot point to specific evidence, do not include the finding.
 
-SEVERITY SCALE:
-Critical: blocks task completion
-Major: significantly impairs experience
-Minor: friction but task is completable
-Info: best-practice observation
+3. Do not generate findings already covered by the automated scan results provided.
 
-Return ONLY a JSON array. Each item must conform to this shape:
+4. Do not pad the response. Five precise findings beat ten vague ones.
+
+5. Confidence must reflect evidence quality:
+   - high: the evidence is unambiguous and directly visible
+   - medium: the evidence is present but requires inference
+   - low: the evidence is indirect or relies on assumptions about user behavior
+
+6. Recommendations must be specific and actionable. "Improve clarity" is not a
+   recommendation. "Replace the placeholder-only label on the email input with a
+   persistent label above the field" is.
+
+Evaluation profile: {profile}
+
+{profile === "nng"}: Evaluate against Nielsen's 10 Usability Heuristics.
+Tag each finding with heuristic_id (1-10).
+
+{profile === "ecommerce_baymard"}: Evaluate against Baymard Institute ecommerce
+guidelines. Focus on: form label positioning, inline validation timing, checkout
+persistence, trust signal placement, guest checkout availability, error recovery,
+and touch target sizing. Tag each finding with the Baymard category name.
+
+{profile === "wcag22_only"}: Evaluate for WCAG 2.2 violations not caught by the
+automated scan. Tag each finding with the criterion number and level.
+
+Return ONLY a JSON array. Each item must match this shape exactly:
 {
-  "framework": "nng" | "wcag",
-  "heuristic_id": number | null,       // 1-10 for nng
-  "wcag_criterion": string | null,     // e.g. "1.4.3" for wcag
+  "framework": "nng" | "baymard" | "wcag",
+  "heuristic_id": number | null,
+  "baymard_category": string | null,
+  "wcag_criterion": string | null,
   "wcag_level": "A" | "AA" | "AAA" | null,
-  "title": string,                     // short, specific issue title
-  "description": string,               // what is wrong and why it's a problem
-  "recommendation": string,            // concrete fix
+  "title": string,
+  "description": string,
+  "recommendation": string,
   "severity": "critical" | "major" | "minor" | "info",
-  "element_hint": string | null,       // CSS selector or plain description of element
-  "confidence": "high" | "medium" | "low"
+  "evidence_dom_snippet": string | null,
+  "evidence_bbox": { "x": number, "y": number, "width": number, "height": number } | null,
+  "ai_confidence": "high" | "medium" | "low"
 }
-
-Rules:
-- Do not repeat findings already covered by the automated scan results provided
-- Focus on observable issues in the screenshot and DOM
-- high confidence = clearly visible violation; low confidence = speculative
-- Be specific: reference actual elements, labels, or content visible in the screenshot
-- Aim for 5-12 findings. Do not pad with obvious or generic observations.
 ```
 
-**User prompt** (per step):
+### User Prompt (per step)
 
 ```
+Session: {sessionName}
 Flow: {flowName}
 Step: {stepName} ({stepOrder} of {totalSteps})
 URL: {url}
+Capture method: {captureMethod}
 
-AUTOMATED SCAN RESULTS (already captured — do not repeat these):
+CODIFIED CHECK RESULTS (do not repeat these):
+{codifiedSummary}
+
+AUTOMATED WCAG SCAN RESULTS (do not repeat these):
 {axeSummary}
 
-Analyze the screenshot and DOM snapshot for usability heuristic violations and accessibility issues not covered by the automated scan above.
+Analyze the screenshot and DOM snapshot. Return findings not covered above.
 ```
 
-### Focused Checklist Analysis
+### Focused Checklist Re-analysis
 
-When a reviewer clicks "Focus analyze" on a specific heuristic or WCAG criterion, an additional targeted prompt is appended:
+When the reviewer clicks "Focus analyze" on a specific heuristic or criterion, an additional instruction appends to the user prompt:
 
 ```
-Focus specifically on {heuristicName / wcagCriterion}. 
-Consider: {criterionDescription}
-What specific evidence do you see in this page that either confirms or rules out a violation of this criterion?
+Focus only on {heuristicName or wcagCriterion}.
+Definition: {criterionDescription}
+What specific evidence in the screenshot or DOM confirms or rules out a violation?
+If you find no evidence of a violation, return an empty array.
 ```
 
-### Token + Cost Management
+---
 
-- **Free tier**: Gemini 2.0 Flash via Google AI Studio — $0 cost up to rate limits
-- DOM snapshot is trimmed to semantic HTML only — `<nav>`, `<main>`, `<header>`, `<footer>`, headings, buttons, inputs, links, images (with alt text). Scripts, styles, and SVG paths stripped.
-- Screenshot is sent as base64 at medium quality (1280px wide, 80% JPEG) — sufficient for visual analysis
-- Estimated cost per step on paid tier: ~$0.001-0.005 (Gemini Flash is significantly cheaper than Claude/GPT-4o even when not free)
+## Evaluation Workspace
+
+```
++---------------------------------+------------------------------------+
+|  SITE PREVIEW                   |  FINDINGS PANEL                    |
+|                                 |                                    |
+|  [Screenshot with overlays]     |  Codified Checks: 4 issues         |
+|                                 |  (auto-confirmed, no triage)       |
+|  Confirmed findings: numbered   |  H5: Missing label on #email       |
+|  pins on screenshot elements.   |  H5: Required field unmarked       |
+|                                 |  H6: No breadcrumb on depth-3 page |
+|  AI pending: dashed outlines    |  H9: Page-level error only         |
+|  with bounding box overlays.    |                                    |
+|                                 |  AI Suggestions: 6 pending         |
+|                                 |  sorted by confidence (high first) |
+|                                 |  [Confirm] [Edit] [Dismiss v]      |
+|                                 |  [Reject as hallucination]         |
+|                                 |                                    |
+|                                 |  My Findings: 1                    |
+|                                 |  [+ Add finding]                   |
+|                                 |                                    |
+|                                 |  Coverage                          |
+|  Step 3 / 5: "Payment Form"     |  NNG: H1 H4 H5 H6 H9 (5/10)      |
+|  [← Back]       [Next ->]       |  WCAG: A pass  AA partial          |
+|                                 |  [Checklist mode] [Re-analyze]     |
++---------------------------------+------------------------------------+
+```
+
+### Triage Actions
+
+**Codified findings:** Auto-confirmed. No triage required. Reviewer can add notes.
+
+**AI suggestion actions:**
+- Confirm: saves as `status: "confirmed"`, pins bounding box to screenshot.
+- Edit then Confirm: opens inline form pre-filled with AI content. Reviewer adjusts and confirms.
+- Dismiss: requires a reason: "Not applicable", "False positive", "Duplicate", "Out of scope".
+- Reject as hallucination: requires a `rejection_reason` describing what the AI got wrong. Logged for reliability tracking.
+
+**Manual finding:** Reviewer selects framework and criterion, fills title, description, severity, optional element selector or screenshot click to place a pin.
+
+### Checklist Mode
+
+Switches the right panel to a full list of all applicable heuristics or criteria for the active profile. For each item:
+- Count of existing findings at this step.
+- "Focus analyze" button: re-runs Gemini with a targeted prompt for that item.
+- "No issues found" button: marks the criterion as reviewed with no findings.
 
 ---
 
@@ -396,131 +511,68 @@ What specific evidence do you see in this page that either confirms or rules out
 
 ```
 AUDIT REPORT
-  Session: {name}
-  Target: {url}
-  Date: {date}
-  Reviewer: {name}
-  Flows evaluated: {n}
-  Total findings: {n} (Critical: n, Major: n, Minor: n, Info: n)
+  Session name, target URL, date, audit profile
+  Capture methods used (bookmarklet / manual upload)
+  Total findings by severity and source (codified / AI / manual)
 
 EXECUTIVE SUMMARY
-  Top 3 critical issues
-  NNG coverage heatmap (H1–H10, findings per heuristic)
-  WCAG conformance summary (A/AA/AAA pass/fail/partial)
+  Top critical issues (max 5)
+  NNG or Baymard coverage heatmap
+  WCAG 2.2 conformance: A / AA / AAA pass or fail per criterion
 
 PER-FLOW FINDINGS
-  For each flow → for each step:
-    Step name + URL + screenshot thumbnail
-    Findings, grouped by framework then severity
-    Each finding: title, description, recommendation, element screenshot if available
+  For each flow, then each step:
+    Step name, URL, capture method, screenshot thumbnail
+    Findings grouped by framework then severity
+    Each finding: title, description, recommendation, evidence snippet or bbox crop
 
-APPENDIX
-  Full NNG heuristic definitions
-  Full WCAG criteria checked
-  Methodology notes
+APPENDIX A: DISMISSED FINDINGS
+  All findings the reviewer dismissed, with dismiss reasons.
+  Included so stakeholders can see what was considered and ruled out.
+
+APPENDIX B: REJECTED AI FINDINGS
+  All findings rejected as hallucinations, with rejection reasons.
+  Included to track AI reliability across sessions.
+
+APPENDIX C: METHODOLOGY
+  Audit profile definition, heuristic and WCAG criterion reference.
 ```
 
 ### PDF Export
 
-- Rendered via `react-pdf` as a styled document
-- Includes screenshots inline
-- One finding per section with element screenshot crop if available
-- Color-coded by severity (red/orange/yellow/blue)
-
-### JIRA Export
-
-Each confirmed finding creates one JIRA issue:
-
-```
-Summary:    [Severity] Title  (e.g. "[Critical] No confirmation before account deletion")
-Issue type: Bug (a11y findings) or Improvement (heuristic findings)
-Labels:     heuristic-evaluation, wcag-AA, severity-critical, flow-checkout, h5-error-prevention
-Description:
-  *What:* {description}
-  *Why it matters:* {heuristic or WCAG criterion description}
-  *Recommendation:* {recommendation}
-  *Found at:* {url} — {stepName}
-  *Flow:* {flowName}
-  Attachment: element screenshot
-Epic link:  {session name} — auto-created if not exists
-Priority:   Critical→P1, Major→P2, Minor→P3, Info→P4
-```
-
-JIRA connection is configured per-session (base URL, project key, API token stored in env / local config).
-
----
-
-## User Flows
-
-### 1. Creating a Session
-
-1. Click "New Audit" on dashboard
-2. Enter: session name, target URL, optional description
-3. Define first flow: name + ordered list of steps (URL + step name for each)
-4. Save — session created, first step loads automatically
-
-### 2. Evaluating a Step
-
-1. Workspace loads: screenshot captured, axe scan runs, Claude analyzes
-2. Automated findings appear immediately in the Automated section (confirmed)
-3. AI suggestions (from Gemini) appear sorted by confidence
-4. Reviewer triages AI suggestions: confirm / edit+confirm / dismiss
-5. Reviewer optionally adds manual findings
-6. Reviewer clicks "Next step" — repeats for each step in the flow
-
-### 3. Adding a Flow
-
-From the session overview, click "Add flow", name it, add steps. Multiple flows can be evaluated in any order.
-
-### 4. Generating a Report
-
-From the session overview, click "Generate Report". Choose:
-- Which flows to include
-- Which finding sources to include (automated / AI / manual)
-- Minimum severity to include
-- Export format: PDF / JIRA / both
+Rendered via react-pdf. Screenshots inline at full width. Each finding occupies its own block: title, severity badge, description, recommendation, DOM snippet or element crop. Color-coded by severity: red (critical), orange (major), yellow (minor), blue (info). Dismissed and rejected findings appear in the appendix sections at reduced opacity.
 
 ---
 
 ## Configuration
 
-Stored in `.env.local`:
+`.env.local`:
 
-```
-# Required — get a free key at aistudio.google.com
+```bash
+# Required. Free key at aistudio.google.com.
 GEMINI_API_KEY=
-
-# Optional — only needed for JIRA export
-JIRA_BASE_URL=
-JIRA_PROJECT_KEY=
-JIRA_API_TOKEN=
-JIRA_USER_EMAIL=
 ```
 
-On first run, if `GEMINI_API_KEY` is not set, the app shows a setup screen prompting the user to enter their key. The key is written to `.env.local` and never leaves the local machine.
+On first run, if `GEMINI_API_KEY` is missing, the app shows a setup screen. The user pastes their key. It writes to `.env.local`. It never leaves the local machine.
 
 ---
 
-## Out of Scope (v1)
+## Backlog (Out of Scope for v1)
 
-- Multi-user / team collaboration (single reviewer only)
-- Authentication
-- Cloud storage (all data local)
-- Browser extension
-- Real-time live site interaction (screenshot-based only)
-- WCAG 2.2 or WCAG 3.0 criteria (WCAG 2.1 only)
-- Custom heuristic frameworks
+- JIRA export
+- Multi-user collaboration
+- Cloud storage or sync
+- Authentication for the app itself
+- Browser extension (vs. bookmarklet)
+- WCAG 2.2 AAA full coverage
+- Custom audit profiles
+- AI reliability dashboard (aggregate rejection_reason analysis across sessions)
+- Learning from corrections: fine-tuning or few-shot injection based on past rejections
 
 ---
 
 ## Open Questions
 
-1. **Screenshot navigation** — When a step URL requires login or prior navigation state, the reviewer needs a way to provide cookies / session tokens to Playwright. Do we support a "manual screenshot upload" fallback for authenticated flows?
-
-2. **Re-analysis on edit** — If a reviewer edits a finding's element selector to point to a different element, should Claude re-analyze with that context?
-
-3. **Confidence threshold default** — Should the UI default to showing only `high` confidence AI suggestions, with `medium` and `low` collapsed? Or show all and let the reviewer set their threshold per session?
-
-4. **JIRA epic strategy** — One epic per session, or one epic per flow?
-
-5. **Screenshot storage** — Local filesystem for v1 is fine, but paths will break if the project is moved. Use a `/screenshots/{sessionId}/` folder relative to the project root and store relative paths in the DB?
+1. Confidence threshold default: show all AI suggestions or collapse medium and low by default?
+2. Screenshot storage: relative paths in DB work for local use but break if the project moves. Accept this for v1 or add a configurable storage root?
+3. Bookmarklet localhost port: hardcode 3000 or make it configurable at bookmarklet generation time?
