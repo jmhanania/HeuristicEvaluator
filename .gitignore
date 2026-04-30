@@ -1,0 +1,20 @@
+# Next.js
+.next/
+out/
+node_modules/
+
+# Env
+.env.local
+.env*.local
+
+# Database (local only)
+db/audit.db
+db/audit.db-shm
+db/audit.db-wal
+
+# Storage (screenshots, DOM snapshots — local only, can contain PII)
+storage/
+
+# OS
+.DS_Store
+Thumbs.db
