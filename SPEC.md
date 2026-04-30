@@ -202,11 +202,34 @@ This is the main capture path. It works on any page the user can view in their b
 9. The app processes the snapshot, runs codified checks, calls Gemini, and returns findings.
 10. The sidebar shows a summary: "12 findings. Open workspace to triage."
 
+**DOM pre-processing (runs in bookmarklet before POST):**
+
+The bookmarklet runs a scrubbing pass on `document.documentElement.cloneNode(true)` before serialising to HTML. This keeps the DOM lean for the LLM and removes noise and PII.
+
+Stripped entirely:
+- All `<script>` elements.
+- All `<style>` elements and `style=""` attributes.
+- All `<svg>` elements with more than 10 child nodes (decorative icons, charts).
+- All `<img>` and `<source>` `src` attributes containing base64 data URIs.
+- All `<input>`, `<textarea>`, and `<select>` `value` attributes.
+- All `data-*` attributes.
+- All `<meta>`, `<link rel="preload">`, and `<link rel="stylesheet">` elements.
+- Query string parameters longer than 20 characters (likely tokens or tracking IDs).
+
+Kept and normalised:
+- Structural elements: `<main>`, `<nav>`, `<header>`, `<footer>`, `<section>`, `<article>`, `<aside>`, `<form>`, `<fieldset>`, `<legend>`.
+- Interactive elements: `<a>`, `<button>`, `<input>` (type and name only), `<select>`, `<textarea>`, `<label>`.
+- Content elements: `<h1>`-`<h6>`, `<p>`, `<li>`, `<td>`, `<th>`, `<caption>`.
+- Key attributes only: `id`, `class`, `aria-*`, `role`, `type`, `name`, `for`, `href` (domain + path, no query), `alt`, `placeholder`, `required`, `disabled`.
+- Text content preserved as-is.
+
+The resulting DOM is typically 80-95% smaller than the raw page source, which keeps Gemini's context usage low and its attention on structure rather than noise.
+
 **What the bookmarklet never captures:**
 - Passwords or form field values (stripped before POST).
 - `data-*` attributes (stripped).
 - Cookie or localStorage contents.
-- Query string parameters that look like tokens (heuristic: strips params longer than 20 chars).
+- Query string parameters longer than 20 characters.
 
 ### Flow B: Manual Screenshot Upload (Fallback)
 
@@ -270,20 +293,36 @@ steps {
   url: text
   order: integer
   capture_method: "bookmarklet" | "manual_upload"
-  screenshot_path: text        // relative path, local only
-  dom_snapshot_path: text      // scrubbed HTML, local only
-  axe_results_path: text       // raw axe JSON, local only
-  has_redactions: boolean      // true if user drew redaction boxes
+  screenshot_path: text        // absolute path under STORAGE_ROOT
+  dom_snapshot_path: text      // absolute path under STORAGE_ROOT, pre-scrubbed HTML
+  axe_results_path: text       // absolute path under STORAGE_ROOT, raw axe JSON
+  has_redactions: boolean      // true if user applied redaction boxes before send
+  last_analyzed_profile: text  // which profile was active on the last scan
   analyzed_at: timestamp
   created_at: timestamp
+}
+
+// Scan: one analysis run against a step (supports re-scanning with a different profile)
+scans {
+  id: text (ulid)
+  step_id: text -> steps.id
+  profile: "nng" | "ecommerce_baymard" | "wcag22_only"
+  triggered_by: "auto" | "manual_rescan"
+  gemini_model: text
+  findings_generated: integer   // total returned by Gemini
+  findings_discarded: integer   // dropped for missing evidence
+  completed_at: timestamp
 }
 
 // Finding: one identified issue at a step
 findings {
   id: text (ulid)
   step_id: text -> steps.id
+  scan_id: text -> scans.id | null   // null for codified and manual findings
   source: "codified" | "ai" | "manual"
-  status: "confirmed" | "dismissed" | "pending"
+  status: "confirmed" | "dismissed" | "pending" | "unverified"
+  // "unverified": AI returned a finding but provided no evidence_selector or evidence_dom_snippet.
+  // Unverified findings are shown collapsed, cannot be confirmed without manual evidence entry.
 
   // Framework (mutually exclusive)
   framework: "nng" | "baymard" | "wcag"
@@ -291,6 +330,7 @@ findings {
   baymard_category: text | null        // e.g. "Form Labels", "Checkout Persistence"
   wcag_criterion: text | null          // e.g. "2.5.8"
   wcag_level: "A" | "AA" | "AAA" | null
+  generated_by_profile: text | null    // profile that produced this finding
 
   // Content
   title: text
@@ -298,20 +338,21 @@ findings {
   recommendation: text
   severity: "critical" | "major" | "minor" | "info"
 
-  // Evidence: required for all AI findings, optional for manual
-  evidence_dom_snippet: text | null    // exact HTML excerpt supporting the finding
-  evidence_bbox: text | null           // JSON {x, y, width, height} in screenshot coords
+  // Evidence: at least one of selector or snippet required for AI findings
+  evidence_selector: text | null       // CSS selector pointing to the violating element
+  evidence_dom_snippet: text | null    // exact HTML excerpt from the scrubbed DOM
+  evidence_bbox: text | null           // JSON {x, y, width, height} in screenshot pixels
   ai_confidence: "high" | "medium" | "low" | null
 
   // Triage
   dismiss_reason: text | null          // why reviewer dismissed it
-  rejection_reason: text | null        // why AI finding was wrong (tracks hallucinations)
+  rejection_reason: text | null        // why AI finding was factually wrong
 
   created_at: timestamp
 }
 ```
 
-The `rejection_reason` field is distinct from `dismiss_reason`. Dismiss means "not relevant to this audit." Rejection means "the AI was factually wrong." Tracking rejections per session lets us measure AI reliability over time and surface patterns in what the model gets wrong.
+`rejection_reason` is distinct from `dismiss_reason`. Dismiss means "not relevant to this audit." Rejection means "the AI was factually wrong." The `scans` table decouples analysis runs from capture events: a stored snapshot can be re-analyzed under any profile without re-capturing the page. Each re-scan appends new findings tagged with `generated_by_profile`, leaving prior confirmed findings untouched.
 
 ---
 
@@ -419,10 +460,16 @@ Return ONLY a JSON array. Each item must match this shape exactly:
   "description": string,
   "recommendation": string,
   "severity": "critical" | "major" | "minor" | "info",
+  "evidence_selector": string | null,
   "evidence_dom_snippet": string | null,
   "evidence_bbox": { "x": number, "y": number, "width": number, "height": number } | null,
   "ai_confidence": "high" | "medium" | "low"
 }
+
+evidence_selector: a CSS selector for the violating element (e.g. "form#checkout input[name='email']").
+evidence_dom_snippet: the raw HTML of the element or its immediate parent, copied verbatim from the DOM provided.
+At least one of evidence_selector or evidence_dom_snippet is required per finding.
+If you cannot supply either, do not include the finding.
 ```
 
 ### User Prompt (per step)
@@ -546,14 +593,26 @@ Rendered via react-pdf. Screenshots inline at full width. Each finding occupies 
 
 ## Configuration
 
-`.env.local`:
+`.env.local` (copy from `.env.example` and fill in values):
 
 ```bash
-# Required. Free key at aistudio.google.com.
+# Required. Free key at aistudio.google.com. No credit card needed.
 GEMINI_API_KEY=
+
+# Absolute path for screenshot and DOM snapshot storage.
+# Defaults to <project_root>/storage if not set.
+# Use an absolute path so files remain accessible if the project directory moves.
+STORAGE_ROOT=/absolute/path/to/storage
+
+# Port the dev server runs on. The bookmarklet generator reads this at
+# generation time and injects it into the script, so the bookmarklet always
+# points to the correct origin. Change this if 3000 is in use.
+PORT=3000
 ```
 
-On first run, if `GEMINI_API_KEY` is missing, the app shows a setup screen. The user pastes their key. It writes to `.env.local`. It never leaves the local machine.
+On first run, if `GEMINI_API_KEY` is missing, the app renders a setup screen. The user pastes their key and it writes to `.env.local`. The key never leaves the local machine.
+
+`STORAGE_ROOT` defaults to `{projectRoot}/storage` at runtime if absent. All `screenshot_path` and `dom_snapshot_path` values in the DB are absolute paths resolved against this root. Moving the project only requires updating `STORAGE_ROOT`, not the DB.
 
 ---
 
@@ -571,8 +630,12 @@ On first run, if `GEMINI_API_KEY` is missing, the app shows a setup screen. The 
 
 ---
 
-## Open Questions
+## Resolved Architecture Decisions
 
-1. Confidence threshold default: show all AI suggestions or collapse medium and low by default?
-2. Screenshot storage: relative paths in DB work for local use but break if the project moves. Accept this for v1 or add a configurable storage root?
-3. Bookmarklet localhost port: hardcode 3000 or make it configurable at bookmarklet generation time?
+| Question | Decision | Rationale |
+|---|---|---|
+| Confidence threshold default | Collapse medium and low by default. Show facts (codified) and high-confidence AI first. | The tool is a ruthless critic, not a brainstorming partner. Noise reduces trust. |
+| Screenshot storage | Absolute paths in DB, resolved from configurable `STORAGE_ROOT` env var. | Relative paths break silently when the project moves. Absolute paths make the failure explicit and fixing it a one-line env change. |
+| Bookmarklet port | Dynamic. The bookmarklet generator reads `PORT` (or `window.location.origin`) at generation time and injects it into the script. | Hardcoding 3000 breaks multi-project setups. The generated script is static thereafter, so no runtime dependency on the server port. |
+| AI evidence mandate | AI findings with no `evidence_selector` and no `evidence_dom_snippet` are stored as `status: "unverified"` rather than discarded. | Discarding silently loses signal. Unverified findings are shown collapsed with a warning; the reviewer can supply evidence manually and confirm, or reject them. |
+| Re-scanning | The `scans` table tracks each analysis run independently. Re-scanning a step under a new profile appends findings tagged with `generated_by_profile` without touching prior confirmed findings. | Stored HTML and screenshots are assets. Re-processing them against new profiles costs only an API call, not a page re-capture. |
