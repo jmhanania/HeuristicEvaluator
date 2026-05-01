@@ -59,25 +59,18 @@ export function NewSessionForm() {
           </div>
 
           <div>
-            <label className="mb-2 block text-xs font-semibold text-slate-400">
-              Audit Profiles <span className="text-slate-600 font-normal">(select one or more)</span>
-            </label>
-            <div className="space-y-2">
+            <p className="mb-2 text-xs font-semibold text-slate-400">
+              Audit Profiles <span className="font-normal text-slate-600">— pick one or more</span>
+            </p>
+            <div className="flex flex-wrap gap-2">
               {PROFILES.map(p => (
                 <label
                   key={p.id}
-                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 hover:border-violet-500/50 hover:bg-slate-800/80 transition-colors has-[:checked]:border-violet-500 has-[:checked]:bg-violet-500/10"
+                  className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-400 transition-colors hover:border-violet-500/60 hover:text-slate-200 has-[:checked]:border-violet-500 has-[:checked]:bg-violet-500/15 has-[:checked]:text-violet-300"
                 >
-                  <input
-                    type="checkbox"
-                    name={p.id}
-                    defaultChecked={p.id === 'nng'}
-                    className="mt-0.5 accent-violet-500"
-                  />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-200">{p.label}</p>
-                    <p className="text-xs text-slate-500">{p.desc}</p>
-                  </div>
+                  <input type="checkbox" name={p.id} defaultChecked={p.id === 'nng'} className="hidden" />
+                  <span className="font-semibold">{p.label}</span>
+                  <span className="text-xs opacity-70">{p.desc}</span>
                 </label>
               ))}
             </div>
