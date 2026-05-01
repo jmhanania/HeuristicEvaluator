@@ -1,6 +1,7 @@
 import { db } from '@/db/client'
 import { sessions, flows, steps, findings } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { NewSessionForm } from '@/components/NewSessionForm'
 
 async function getSessions() {
   try {
@@ -39,13 +40,16 @@ export default async function HomePage() {
             <h1 className="text-xl font-bold text-slate-100">HeuristicEvaluator</h1>
             <p className="text-xs text-slate-500 mt-0.5">AI-augmented UX audit platform</p>
           </div>
-          <a
-            href="/api/bookmarklet"
-            target="_blank"
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
-          >
-            Get Bookmarklet
-          </a>
+          <div className="flex items-center gap-2">
+            <a
+              href="/api/bookmarklet"
+              target="_blank"
+              className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700"
+            >
+              Get Bookmarklet
+            </a>
+            <NewSessionForm />
+          </div>
         </div>
       </header>
 
@@ -56,15 +60,18 @@ export default async function HomePage() {
             <p className="text-4xl mb-4">🔍</p>
             <h2 className="text-lg font-semibold text-slate-200 mb-2">No audits yet</h2>
             <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">
-              Install the bookmarklet in your browser, navigate to any website, and click it to start your first audit.
+              Create a session first, then install the bookmarklet and click it on any website to start capturing.
             </p>
-            <a
-              href="/api/bookmarklet"
-              target="_blank"
-              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500"
-            >
-              Get the Bookmarklet
-            </a>
+            <div className="flex items-center justify-center gap-3">
+              <NewSessionForm />
+              <a
+                href="/api/bookmarklet"
+                target="_blank"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-300 hover:bg-slate-700"
+              >
+                Get Bookmarklet
+              </a>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
