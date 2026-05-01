@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, Fragment } from 'react'
 import type { Finding, Severity, FindingStatus, FindingSource } from '@/db/schema'
 import { SeverityBadge } from './SeverityBadge'
 import type { ActiveHighlight } from './SitePreview'
@@ -327,9 +327,8 @@ export function TriageTable({ findings: allFindings, stepPath, onHover }: Props)
                 const dimmed = f.status === 'dismissed' ? 'opacity-40' : ''
 
                 return (
-                  <>
+                  <Fragment key={f.id}>
                     <tr
-                      key={f.id}
                       className={`group border-b border-slate-700/30 ${rowBg} ${dimmed} cursor-pointer transition-colors hover:bg-slate-700/40`}
                       onMouseEnter={() => handleRowEnter(f)}
                       onMouseLeave={handleRowLeave}
@@ -412,7 +411,7 @@ export function TriageTable({ findings: allFindings, stepPath, onHover }: Props)
 
                     {/* Expanded detail row */}
                     {isExpanded && (
-                      <tr key={`${f.id}-detail`} className={`${rowBg} border-b border-slate-700/30`}>
+                      <tr className={`${rowBg} border-b border-slate-700/30`}>
                         <td colSpan={7} className="px-4 py-3">
                           <div className="grid grid-cols-2 gap-4 text-[11px]">
                             <div>
@@ -459,7 +458,7 @@ export function TriageTable({ findings: allFindings, stepPath, onHover }: Props)
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 )
               })}
             </tbody>
