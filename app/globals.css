@@ -24,3 +24,15 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  /* Force white backgrounds for report printing */
+  body { background: #fff !important; color: #0f172a !important; }
+  .print\:hidden { display: none !important; }
+  .print\:block { display: block !important; }
+  section { break-inside: avoid; }
+  /* Allow step sections to break before them */
+  .print\:break-before-page { break-before: page; }
+  /* Prevent finding cards from splitting across pages */
+  .print\:break-inside-avoid { break-inside: avoid; }
+}

@@ -47,6 +47,12 @@ export function WorkspaceClient({ session, flow, step, findings, screenshotUrl, 
               {step.lastAnalyzedProfile}
             </span>
           )}
+          <a
+            href={`/reports/${flow.id}`}
+            className="rounded bg-violet-600/20 px-3 py-1 text-[11px] font-semibold text-violet-300 hover:bg-violet-600/30"
+          >
+            View Report
+          </a>
         </div>
       </header>
 
