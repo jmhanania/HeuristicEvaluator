@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { Session, Flow, Step, Finding } from '@/db/schema'
 import { SitePreview, type ActiveHighlight } from '@/components/workspace/SitePreview'
 import { TriageTable } from '@/components/workspace/TriageTable'
+import { RescanButton } from '@/components/workspace/RescanButton'
 
 interface Props {
   session: Session
@@ -47,6 +48,11 @@ export function WorkspaceClient({ session, flow, step, findings, screenshotUrl, 
               {step.lastAnalyzedProfile}
             </span>
           )}
+          <RescanButton
+            stepId={step.id}
+            stepPath={stepPath}
+            currentProfile={(step.lastAnalyzedProfile as import('@/db/schema').AuditProfile) ?? null}
+          />
           <a
             href={`/reports/${flow.id}`}
             className="rounded bg-violet-600/20 px-3 py-1 text-[11px] font-semibold text-violet-300 hover:bg-violet-600/30"

@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useMemo } from 'react'
 import type { Severity, Finding } from '@/db/schema'
 import { SEVERITY_RGBA, SEVERITY_BORDER } from './SeverityBadge'
 
@@ -37,16 +37,19 @@ export function SitePreview({ screenshotUrl, highlight, findings, stepUrl, captu
   const imgRef = useRef<HTMLImageElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Findings with bboxes, assigned a stable pin number
-  const pins = findings
-    .filter(f => f.status !== 'dismissed' && parseBbox(f.evidenceBbox))
-    .map((f, i) => ({
-      number: i + 1,
-      bbox: parseBbox(f.evidenceBbox)!,
-      severity: f.severity as Severity,
-      label: f.title,
-      id: f.id,
-    }))
+  // Stable pin list — only recomputed when findings array identity changes
+  const pins = useMemo(() =>
+    findings
+      .filter(f => f.status !== 'dismissed' && parseBbox(f.evidenceBbox))
+      .map((f, i) => ({
+        number: i + 1,
+        bbox: parseBbox(f.evidenceBbox)!,
+        severity: f.severity as Severity,
+        label: f.title,
+        id: f.id,
+      })),
+    [findings],
+  )
 
   const draw = useCallback(() => {
     const img = imgRef.current
@@ -146,7 +149,16 @@ export function SitePreview({ screenshotUrl, highlight, findings, stepUrl, captu
       {/* Header bar */}
       <div className="flex items-center gap-2 border-b border-slate-700/50 bg-slate-800/60 px-3 py-2">
         <span className="truncate font-mono text-[11px] text-slate-400">{stepUrl}</span>
-        <span className="ml-auto shrink-0 rounded bg-slate-700 px-2 py-0.5 text-[10px] text-slate-400">
+        {pins.length > 0 ? (
+          <span className="shrink-0 rounded bg-blue-500/20 px-2 py-0.5 text-[10px] text-blue-400">
+            {pins.length} pin{pins.length !== 1 ? 's' : ''}
+          </span>
+        ) : (
+          <span className="shrink-0 rounded bg-slate-700/50 px-2 py-0.5 text-[10px] text-slate-600">
+            no bbox data
+          </span>
+        )}
+        <span className="shrink-0 rounded bg-slate-700 px-2 py-0.5 text-[10px] text-slate-400">
           {captureMethod === 'bookmarklet' ? 'bookmarklet' : 'uploaded'}
         </span>
       </div>

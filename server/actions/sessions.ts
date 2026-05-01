@@ -6,6 +6,7 @@ import { db } from '@/db/client'
 import { sessions } from '@/db/schema'
 import type { AuditProfile } from '@/db/schema'
 import { ulid } from 'ulid'
+import { eq } from 'drizzle-orm'
 
 export async function createSession(formData: FormData) {
   const name = (formData.get('name') as string)?.trim()
@@ -29,4 +30,9 @@ export async function createSession(formData: FormData) {
 
   revalidatePath('/')
   redirect('/')
+}
+
+export async function deleteSession(sessionId: string) {
+  await db.delete(sessions).where(eq(sessions.id, sessionId))
+  revalidatePath('/')
 }

@@ -2,6 +2,7 @@ import { db } from '@/db/client'
 import { sessions, flows, steps, findings } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { NewSessionForm } from '@/components/NewSessionForm'
+import { DeleteSessionButton } from '@/components/DeleteSessionButton'
 
 async function getSessions() {
   try {
@@ -98,6 +99,7 @@ export default async function HomePage() {
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
                       {session.auditProfile}
                     </span>
+                    <DeleteSessionButton sessionId={session.id} sessionName={session.name} />
                   </div>
 
                   {/* Flows */}

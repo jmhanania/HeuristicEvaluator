@@ -22,12 +22,19 @@ STRICT RULES — violating any of these makes your output unusable:
    found in the provided DOM, the finding will be automatically downgraded to
    "unverified" and flagged as a likely hallucination. Avoid this.
 
-3. No duplication. Do not repeat findings already covered by the automated
+3. Bounding box is required when the element is visible in the screenshot.
+   For every finding where the violating element is visible, you MUST populate
+   evidence_bbox with pixel coordinates in the screenshot image:
+   { "x": left edge, "y": top edge, "width": element width, "height": element height }
+   Measure carefully from the screenshot. Use null only when the element is not
+   visible in the current viewport (e.g. it is off-screen or in a hidden state).
+
+4. No duplication. Do not repeat findings already covered by the automated
    axe-core results or codified check results provided.
 
-4. Precision over volume. 5 precise findings beat 10 vague ones. Do not pad.
+5. Precision over volume. 5 precise findings beat 10 vague ones. Do not pad.
 
-5. Confidence must reflect evidence quality:
+6. Confidence must reflect evidence quality:
    - high: violation is unambiguous and directly visible in DOM or screenshot
    - medium: violation is present but requires inference
    - low: violation is plausible but relies on assumptions about user behaviour
