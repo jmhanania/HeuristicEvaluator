@@ -365,9 +365,11 @@ export function generateBookmarkletScript(origin: string): string {
       // Step 2: html2canvas screenshot
       setStatus('Capturing viewport...');
       await loadScript('${H2C_CDN}');
+      // Hide bookmarklet panel so it doesn't appear in the screenshot
+      host.style.display = 'none';
       var pageCanvas = await window.html2canvas(document.documentElement, {
         useCORS:      true,
-        allowTaint:   false,
+        allowTaint:   true,   // allow cross-origin images to render (tainted canvas, no export restriction on our end)
         scale:        Math.min(window.devicePixelRatio || 1, 2),
         width:        window.innerWidth,
         height:       window.innerHeight,
@@ -376,7 +378,10 @@ export function generateBookmarkletScript(origin: string): string {
         windowWidth:  window.innerWidth,
         windowHeight: window.innerHeight,
         logging:      false,
+        imageTimeout: 5000,   // skip images that take too long rather than hanging
       });
+      // Restore panel immediately after capture
+      host.style.display = '';
 
       // Burn redaction boxes into the captured canvas
       burnRedactions(pageCanvas);

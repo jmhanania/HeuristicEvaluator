@@ -63,6 +63,7 @@ export function WorkspaceClient({ session, flow, step, findings, screenshotUrl, 
           <SitePreview
             screenshotUrl={screenshotUrl}
             highlight={highlight}
+            findings={findings}
             stepUrl={step.url}
             captureMethod={step.captureMethod ?? 'manual_upload'}
           />
