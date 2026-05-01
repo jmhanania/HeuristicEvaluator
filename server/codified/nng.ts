@@ -64,12 +64,13 @@ function checkInputLabels($: cheerio.CheerioAPI): PartialFinding[] {
         description: `The following inputs have no <label>, aria-label, or aria-labelledby: ${unlabelledSelectors.slice(0, 5).join(', ')}${unlabelledSelectors.length > 5 ? ` and ${unlabelledSelectors.length - 5} more` : ''}.`,
         recommendation:
           'Add a visible <label for="inputId"> or aria-label to every input. Placeholder text is not a substitute — it disappears on focus and is not reliably announced by screen readers.',
-        severity: 'major',
+        severity: 'serious',
         evidenceSelector: unlabelledSelectors[0],
         evidenceDomSnippet: null,
         evidenceBbox: null,
         aiConfidence: null,
         dismissReason: null,
+        remediation: null,
         rejectionReason: null,
       }),
     )
@@ -116,12 +117,13 @@ function checkPlaceholderOnlyLabels($: cheerio.CheerioAPI): PartialFinding[] {
         description: `These inputs rely on placeholder text as their only label: ${offenders.slice(0, 3).join(', ')}. Placeholder disappears on focus, leaving the user without a label mid-entry.`,
         recommendation:
           'Add a persistent visible label above or beside each input. The placeholder can remain as an example value hint, but must not carry the labelling responsibility.',
-        severity: 'major',
+        severity: 'serious',
         evidenceSelector: offenders[0],
         evidenceDomSnippet: null,
         evidenceBbox: null,
         aiConfidence: null,
         dismissReason: null,
+        remediation: null,
         rejectionReason: null,
       }),
     )
@@ -165,6 +167,7 @@ function checkBreadcrumbs($: cheerio.CheerioAPI): PartialFinding[] {
         evidenceBbox: null,
         aiConfidence: null,
         dismissReason: null,
+        remediation: null,
         rejectionReason: null,
       }),
     ]
@@ -207,13 +210,14 @@ function checkModalDismiss($: cheerio.CheerioAPI): PartialFinding[] {
           description: `The dialog element has no button with a close, cancel, or dismiss label. Users who trigger it accidentally have no clear escape path without using the keyboard Escape key, which is not universally known.`,
           recommendation:
             'Add a clearly labelled close button (aria-label="Close dialog") in the dialog header. For confirmation dialogs, provide both a confirm and an explicit cancel action.',
-          severity: 'major',
+          severity: 'serious',
           evidenceSelector: selector,
           evidenceDomSnippet: null,
           evidenceBbox: null,
           aiConfidence: null,
           dismissReason: null,
-          rejectionReason: null,
+          remediation: null,
+        rejectionReason: null,
         }),
       )
     }
@@ -257,6 +261,7 @@ function checkConsistentCTALabels($: cheerio.CheerioAPI): PartialFinding[] {
         evidenceBbox: null,
         aiConfidence: null,
         dismissReason: null,
+        remediation: null,
         rejectionReason: null,
       }),
     ]
@@ -308,12 +313,13 @@ function checkInlineErrors($: cheerio.CheerioAPI): PartialFinding[] {
         description: `These inputs are marked aria-invalid="true" but have no linked or adjacent error message: ${missingInline.slice(0, 3).join(', ')}. A page-level alert exists, but users must scan to discover which field failed.`,
         recommendation:
           'Pair each invalid input with an inline error message using aria-errormessage or aria-describedby. Place it immediately below the input. The message should name the field and explain what went wrong.',
-        severity: 'major',
+        severity: 'serious',
         evidenceSelector: missingInline[0],
         evidenceDomSnippet: null,
         evidenceBbox: null,
         aiConfidence: null,
         dismissReason: null,
+        remediation: null,
         rejectionReason: null,
       }),
     ]
@@ -344,12 +350,13 @@ function checkPersistentNav($: cheerio.CheerioAPI): PartialFinding[] {
           'The page has no <nav> or role="navigation" element. Users have no persistent landmark to orient themselves or move to other sections of the site.',
         recommendation:
           'Add a primary <nav aria-label="Main"> containing the site\'s top-level links. Keep it consistent across all pages.',
-        severity: 'major',
+        severity: 'serious',
         evidenceSelector: 'body',
         evidenceDomSnippet: null,
         evidenceBbox: null,
         aiConfidence: null,
         dismissReason: null,
+        remediation: null,
         rejectionReason: null,
       }),
     ]

@@ -32,15 +32,40 @@ STRICT RULES — violating any of these makes your output unusable:
    - medium: violation is present but requires inference
    - low: violation is plausible but relies on assumptions about user behaviour
 
-6. Recommendations must be actionable. "Improve clarity" is not a recommendation.
-   "Replace the placeholder-only label on input[name='email'] with a persistent
-   <label> above the field" is.
+6. Remediation must be a direct technical instruction. It must name the specific
+   element and the exact change required. These are correct:
+     "Add aria-describedby=\"checkout-error\" to input[name='card-number'] and
+      render <span id=\"checkout-error\"> immediately below the field."
+     "Move button[data-action='delete'] at least 48px from the primary CTA to
+      prevent fat-finger activation on touch devices."
+   These are wrong:
+     "Improve the error message." (too vague)
+     "Consider adding labels." (not a technical instruction)
 
-SEVERITY SCALE:
-  critical: blocks task completion entirely
-  major: significantly impairs the experience
-  minor: friction or confusion but task is completable
-  info: best-practice observation only
+SEVERITY RUBRIC — derive severity from heuristic impact, not aesthetics:
+
+  critical: The user cannot complete the task, or data/work is at risk of loss.
+    Apply when: a form submits without validation (H5), there is no exit from a
+    destructive action (H3), an error state is unrecoverable (H9), or an
+    authenticated action has no confirmation step.
+
+  serious: Significant cognitive load, confusion, or likely task abandonment.
+    Apply when: the system gives no feedback on a slow action (H1), system
+    jargon replaces user language (H2), the user must recall non-visible
+    information to proceed (H6), or error messages don't identify the failing
+    field (H9).
+
+  moderate: Friction that slows the user but does not block task completion.
+    Apply when: inconsistent terminology exists across steps (H4), repeat
+    users have no shortcut affordances (H7), or contextual help is absent
+    on a complex field (H10).
+
+  minor: Aesthetic or polish issue. Noticeable but no impact on task completion.
+    Apply when: minor visual clutter exists (H8) or there are small style
+    inconsistencies with no functional consequence (H4).
+
+  Default to 'serious' when uncertain. Under-severity is worse than over-severity
+  for a ruthless critic producing an actionable punch list.
 
 OUTPUT FORMAT:
 Return ONLY a valid JSON array. No markdown, no prose, no code fences.
@@ -53,8 +78,8 @@ Each item must exactly match this shape:
   "wcag_level": "A" | "AA" | "AAA" | null,
   "title": string,
   "description": string,
-  "recommendation": string,
-  "severity": "critical" | "major" | "minor" | "info",
+  "remediation": string,
+  "severity": "critical" | "serious" | "moderate" | "minor",
   "evidence_selector": string | null,
   "evidence_dom_snippet": string | null,
   "evidence_bbox": { "x": number, "y": number, "width": number, "height": number } | null,

@@ -143,9 +143,15 @@ export const findings = sqliteTable('findings', {
   title: text('title').notNull(),
   description: text('description').notNull(),
   recommendation: text('recommendation').notNull(),
+  // Severity aligns with the AI prompt rubric and codified check ratings.
+  // critical/serious/moderate/minor replaces the old critical/major/minor/info scale.
   severity: text('severity', {
-    enum: ['critical', 'major', 'minor', 'info'],
+    enum: ['critical', 'serious', 'moderate', 'minor'],
   }).notNull(),
+
+  // remediation: direct technical fix instruction (AI findings).
+  // More specific than a plain recommendation — names the element and exact change.
+  remediation: text('remediation'),
 
   // Evidence
   // AI findings: at least one of evidenceSelector or evidenceDomSnippet is required.
@@ -187,4 +193,4 @@ export type NewFinding = typeof findings.$inferInsert
 export type AuditProfile = Session['auditProfile']
 export type FindingSource = Finding['source']
 export type FindingStatus = Finding['status']
-export type Severity = Finding['severity']
+export type Severity = 'critical' | 'serious' | 'moderate' | 'minor'

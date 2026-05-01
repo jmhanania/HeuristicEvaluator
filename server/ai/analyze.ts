@@ -17,8 +17,8 @@ interface GeminiFinding {
   wcag_level: 'A' | 'AA' | 'AAA' | null
   title: string
   description: string
-  recommendation: string
-  severity: 'critical' | 'major' | 'minor' | 'info'
+  remediation: string
+  severity: 'critical' | 'serious' | 'moderate' | 'minor'
   evidence_selector: string | null
   evidence_dom_snippet: string | null
   evidence_bbox: { x: number; y: number; width: number; height: number } | null
@@ -179,7 +179,8 @@ export async function analyze(params: AnalyzeParams): Promise<AnalyzeResult> {
       generatedByProfile: params.profile,
       title: gf.title,
       description: gf.description,
-      recommendation: gf.recommendation,
+      recommendation: gf.remediation,
+      remediation: gf.remediation,
       severity: gf.severity,
       evidenceSelector: gf.evidence_selector ?? null,
       evidenceDomSnippet: gf.evidence_dom_snippet ?? null,
