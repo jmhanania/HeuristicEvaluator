@@ -1,65 +1,157 @@
-import Image from "next/image";
+import { db } from '@/db/client'
+import { sessions, flows, steps, findings } from '@/db/schema'
+import { eq, desc } from 'drizzle-orm'
 
-export default function Home() {
+async function getSessions() {
+  try {
+    return await db.select().from(sessions).orderBy(desc(sessions.createdAt))
+  } catch {
+    return []
+  }
+}
+
+async function getFlowsForSession(sessionId: string) {
+  return db.select().from(flows).where(eq(flows.sessionId, sessionId)).orderBy(flows.order)
+}
+
+async function getStepsForFlow(flowId: string) {
+  return db.select().from(steps).where(eq(steps.flowId, flowId)).orderBy(steps.order)
+}
+
+async function getFindingCountForStep(stepId: string) {
+  const rows = await db.select().from(findings).where(eq(findings.stepId, stepId))
+  return {
+    total: rows.length,
+    confirmed: rows.filter(f => f.status === 'confirmed').length,
+    critical: rows.filter(f => f.severity === 'critical' && f.status === 'confirmed').length,
+  }
+}
+
+export default async function HomePage() {
+  const allSessions = await getSessions()
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      {/* Header */}
+      <header className="border-b border-slate-700/50 bg-slate-900 px-8 py-5">
+        <div className="mx-auto max-w-5xl flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-slate-100">HeuristicEvaluator</h1>
+            <p className="text-xs text-slate-500 mt-0.5">AI-augmented UX audit platform</p>
+          </div>
           <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+            href="/api/bookmarklet"
             target="_blank"
-            rel="noopener noreferrer"
+            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-500"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
+            Get Bookmarklet
           </a>
         </div>
+      </header>
+
+      <main className="mx-auto max-w-5xl px-8 py-10">
+        {allSessions.length === 0 ? (
+          /* Empty state */
+          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/40 px-10 py-16 text-center">
+            <p className="text-4xl mb-4">🔍</p>
+            <h2 className="text-lg font-semibold text-slate-200 mb-2">No audits yet</h2>
+            <p className="text-sm text-slate-500 max-w-md mx-auto mb-6">
+              Install the bookmarklet in your browser, navigate to any website, and click it to start your first audit.
+            </p>
+            <a
+              href="/api/bookmarklet"
+              target="_blank"
+              className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-violet-500"
+            >
+              Get the Bookmarklet
+            </a>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <h2 className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Audit Sessions
+            </h2>
+            {await Promise.all(allSessions.map(async session => {
+              const sessionFlows = await getFlowsForSession(session.id)
+              return (
+                <div key={session.id} className="rounded-xl border border-slate-700/50 bg-slate-900/60">
+                  {/* Session header */}
+                  <div className="flex items-center gap-3 border-b border-slate-700/40 px-5 py-3.5">
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-100">{session.name}</p>
+                      <p className="text-xs text-slate-500 font-mono mt-0.5">{session.targetUrl}</p>
+                    </div>
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
+                      session.status === 'complete'
+                        ? 'bg-green-500/20 text-green-400'
+                        : 'bg-slate-700 text-slate-400'
+                    }`}>
+                      {session.status}
+                    </span>
+                    <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
+                      {session.auditProfile}
+                    </span>
+                  </div>
+
+                  {/* Flows */}
+                  {sessionFlows.length === 0 ? (
+                    <p className="px-5 py-4 text-sm text-slate-600">No flows captured yet.</p>
+                  ) : (
+                    <div className="divide-y divide-slate-800/60">
+                      {await Promise.all(sessionFlows.map(async flow => {
+                        const flowSteps = await getStepsForFlow(flow.id)
+                        return (
+                          <div key={flow.id} className="px-5 py-3">
+                            <div className="flex items-center gap-3 mb-2">
+                              <p className="text-sm font-medium text-slate-300">{flow.name}</p>
+                              <a
+                                href={`/reports/${flow.id}`}
+                                className="rounded bg-violet-600/20 px-2 py-0.5 text-[10px] font-semibold text-violet-300 hover:bg-violet-600/30"
+                              >
+                                View Report
+                              </a>
+                            </div>
+                            {/* Steps */}
+                            <div className="space-y-1">
+                              {await Promise.all(flowSteps.map(async step => {
+                                const counts = await getFindingCountForStep(step.id)
+                                return (
+                                  <a
+                                    key={step.id}
+                                    href={`/sessions/${session.id}/flows/${flow.id}/steps/${step.id}`}
+                                    className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-slate-800/60 transition-colors"
+                                  >
+                                    <span className="text-slate-500 text-[10px] font-mono w-4">{step.order + 1}</span>
+                                    <span className="text-sm text-slate-300 flex-1">{step.name}</span>
+                                    <span className="font-mono text-[10px] text-slate-600 truncate max-w-[200px]">{step.url}</span>
+                                    {counts.critical > 0 && (
+                                      <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">
+                                        {counts.critical} critical
+                                      </span>
+                                    )}
+                                    {counts.total > 0 && (
+                                      <span className="text-[10px] text-slate-500">
+                                        {counts.confirmed}/{counts.total} confirmed
+                                      </span>
+                                    )}
+                                    <svg className="h-3.5 w-3.5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </a>
+                                )
+                              }))}
+                            </div>
+                          </div>
+                        )
+                      }))}
+                    </div>
+                  )}
+                </div>
+              )
+            }))}
+          </div>
+        )}
       </main>
     </div>
-  );
+  )
 }
