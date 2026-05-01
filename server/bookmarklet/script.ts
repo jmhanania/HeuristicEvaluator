@@ -237,7 +237,7 @@ export function generateBookmarkletScript(origin: string): string {
   }
 
   // ── 4. SESSIONS / FLOWS ───────────────────────────────────────────────────
-  var sessionsData = []; // [{ id, name, auditProfile, flows: [{ id, name }] }]
+  var sessionsData = []; // [{ id, name, auditProfiles, flows: [{ id, name }] }]
 
   function loadSessions() {
     setStatus('Loading sessions...');
@@ -463,7 +463,7 @@ export function generateBookmarkletScript(origin: string): string {
         rawHtml:         rawHtml,
         screenshotBase64: screenshotB64,
         axeResults:      { violations: axeResults.violations, passes: axeResults.passes },
-        auditProfile:    session.auditProfile,
+        auditProfiles:   session.auditProfiles || ['nng'],
         hasRedactions:   redactRects.length > 0,
       };
 

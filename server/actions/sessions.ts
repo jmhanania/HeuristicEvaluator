@@ -8,10 +8,14 @@ import type { AuditProfile } from '@/db/schema'
 import { ulid } from 'ulid'
 import { eq } from 'drizzle-orm'
 
+const ALL_PROFILES: AuditProfile[] = ['nng', 'ecommerce_baymard', 'wcag22_only']
+
 export async function createSession(formData: FormData) {
   const name = (formData.get('name') as string)?.trim()
   const targetUrl = (formData.get('targetUrl') as string)?.trim()
-  const auditProfile = (formData.get('auditProfile') as AuditProfile) ?? 'nng'
+
+  const selectedProfiles = ALL_PROFILES.filter(p => formData.get(p) === 'on')
+  const auditProfiles = selectedProfiles.length > 0 ? selectedProfiles : ['nng' as AuditProfile]
 
   if (!name || !targetUrl) throw new Error('Name and URL are required')
 
@@ -22,7 +26,7 @@ export async function createSession(formData: FormData) {
     id,
     name,
     targetUrl,
-    auditProfile,
+    auditProfiles: JSON.stringify(auditProfiles),
     status: 'draft',
     createdAt: now,
     updatedAt: now,

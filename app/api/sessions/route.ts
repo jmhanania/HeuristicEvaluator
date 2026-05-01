@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/db/client'
-import { sessions, flows } from '@/db/schema'
+import { sessions, flows, parseProfiles } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 
 const CORS = {
@@ -29,7 +29,7 @@ export async function GET() {
       return {
         id: session.id,
         name: session.name,
-        auditProfile: session.auditProfile,
+        auditProfiles: parseProfiles(session.auditProfiles),
         status: session.status,
         flows: sessionFlows,
       }

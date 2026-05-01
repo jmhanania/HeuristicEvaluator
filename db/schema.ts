@@ -9,11 +9,8 @@ export const sessions = sqliteTable('sessions', {
   name: text('name').notNull(),
   targetUrl: text('target_url').notNull(),
   description: text('description'),
-  auditProfile: text('audit_profile', {
-    enum: ['nng', 'ecommerce_baymard', 'wcag22_only'],
-  })
-    .notNull()
-    .default('nng'),
+  // JSON array of AuditProfile values, e.g. '["nng","wcag22_only"]'
+  auditProfiles: text('audit_profile').notNull().default('["nng"]'),
   status: text('status', { enum: ['draft', 'complete'] })
     .notNull()
     .default('draft'),
@@ -190,7 +187,17 @@ export type Finding = typeof findings.$inferSelect
 export type NewFinding = typeof findings.$inferInsert
 
 // Derived union types used across the app
-export type AuditProfile = Session['auditProfile']
+export type AuditProfile = 'nng' | 'ecommerce_baymard' | 'wcag22_only'
 export type FindingSource = Finding['source']
 export type FindingStatus = Finding['status']
 export type Severity = 'critical' | 'serious' | 'moderate' | 'minor'
+
+// Helper: parse the JSON array stored in sessions.auditProfiles
+export function parseProfiles(raw: string): AuditProfile[] {
+  try {
+    const parsed = JSON.parse(raw)
+    if (Array.isArray(parsed)) return parsed as AuditProfile[]
+  } catch { /* */ }
+  // Legacy: plain string value
+  return [raw as AuditProfile]
+}

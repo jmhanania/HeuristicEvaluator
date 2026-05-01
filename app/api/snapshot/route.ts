@@ -43,7 +43,7 @@ interface SnapshotPayload {
   url: string
   captureMethod: 'bookmarklet' | 'manual_upload'
   hasRedactions: boolean
-  auditProfile: AuditProfile
+  auditProfiles: AuditProfile[]
 
   // Captured data
   rawHtml: string
@@ -149,53 +149,63 @@ export async function POST(req: NextRequest) {
       axeResultsPath,
       url:                 payload.url,
       hasRedactions:       payload.hasRedactions,
-      lastAnalyzedProfile: payload.auditProfile,
+      lastAnalyzedProfile: (payload.auditProfiles ?? ['nng'])[0],
       analyzedAt:          new Date(),
     })
     .where(eq(steps.id, stepId))
 
-  // 10. Codified checks (deterministic, no API call)
-  const codifiedFindings = runCodifiedChecks(payload.auditProfile, scrubbed, stepId)
+  const profiles: AuditProfile[] = payload.auditProfiles?.length ? payload.auditProfiles : ['nng']
 
-  // 11. Gemini analysis (single batched call for all heuristics)
+  // 10. Codified checks — run for each profile, deduplicate by title
+  const seenTitles = new Set<string>()
+  const codifiedFindings: NewFinding[] = []
+  for (const profile of profiles) {
+    for (const f of runCodifiedChecks(profile, scrubbed, stepId)) {
+      if (!seenTitles.has(f.title)) {
+        seenTitles.add(f.title)
+        codifiedFindings.push(f)
+      }
+    }
+  }
+
+  // 11. Gemini analysis — one call per profile
   let aiFindings: NewFinding[] = []
   let scanStats = { findingsGenerated: 0, findingsDiscarded: 0 }
 
   if (!config.geminiApiKey) {
     console.warn('[snapshot] GEMINI_API_KEY not set — skipping AI analysis')
   } else {
-    try {
-      const result = await analyze({
-        stepId,
-        profile: payload.auditProfile,
-        scrubbedHtml: scrubbed,
-        screenshotBase64: payload.screenshotBase64,
-        sessionName: payload.sessionName,
-        flowName: payload.newFlowName || payload.flowId || 'Unknown Flow',
-        stepName: payload.stepName,
-        stepOrder: 1,
-        totalSteps: 1,
-        url: payload.url,
-        captureMethod: payload.captureMethod,
-        codifiedFindings,
-        axeResults: payload.axeResults.violations,
-      })
+    for (const profile of profiles) {
+      try {
+        const result = await analyze({
+          stepId,
+          profile,
+          scrubbedHtml: scrubbed,
+          screenshotBase64: payload.screenshotBase64,
+          sessionName: payload.sessionName,
+          flowName: payload.newFlowName || payload.flowId || 'Unknown Flow',
+          stepName: payload.stepName,
+          stepOrder: 1,
+          totalSteps: 1,
+          url: payload.url,
+          captureMethod: payload.captureMethod,
+          codifiedFindings,
+          axeResults: payload.axeResults.violations,
+        })
 
-      const scanId = ulid()
-      await db.insert(scans).values({
-        id: scanId,
-        stepId,
-        ...result.scan,
-      })
+        const scanId = ulid()
+        await db.insert(scans).values({
+          id: scanId,
+          stepId,
+          ...result.scan,
+        })
 
-      aiFindings = result.findings.map(f => ({ ...f, scanId }))
-      scanStats = {
-        findingsGenerated: result.scan.findingsGenerated ?? 0,
-        findingsDiscarded: result.scan.findingsDiscarded ?? 0,
+        aiFindings = aiFindings.concat(result.findings.map(f => ({ ...f, scanId })))
+        scanStats.findingsGenerated += result.scan.findingsGenerated ?? 0
+        scanStats.findingsDiscarded += result.scan.findingsDiscarded ?? 0
+      } catch (err) {
+        console.error(`[snapshot] Gemini analysis failed for profile ${profile}:`, err)
       }
-    } catch (err) {
-      console.error('[snapshot] Gemini analysis failed:', err)
-      // Don't fail the whole request — codified findings are still saved
     }
   }
 

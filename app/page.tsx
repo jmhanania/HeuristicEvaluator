@@ -1,5 +1,5 @@
 import { db } from '@/db/client'
-import { sessions, flows, steps, findings } from '@/db/schema'
+import { sessions, flows, steps, findings, parseProfiles } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { NewSessionForm } from '@/components/NewSessionForm'
 import { DeleteSessionButton } from '@/components/DeleteSessionButton'
@@ -96,9 +96,13 @@ export default async function HomePage() {
                     }`}>
                       {session.status}
                     </span>
-                    <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
-                      {session.auditProfile}
-                    </span>
+                    <div className="flex gap-1">
+                      {parseProfiles(session.auditProfiles).map(p => (
+                        <span key={p} className="rounded bg-slate-800 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">
+                          {p === 'ecommerce_baymard' ? 'baymard' : p === 'wcag22_only' ? 'wcag' : p}
+                        </span>
+                      ))}
+                    </div>
                     <DeleteSessionButton sessionId={session.id} sessionName={session.name} />
                   </div>
 

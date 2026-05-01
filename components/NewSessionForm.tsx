@@ -3,6 +3,12 @@
 import { useState } from 'react'
 import { createSession } from '@/server/actions/sessions'
 
+const PROFILES = [
+  { id: 'nng',               label: 'NNG',     desc: "Nielsen's 10 Usability Heuristics" },
+  { id: 'ecommerce_baymard', label: 'Baymard',  desc: 'Ecommerce UX Guidelines' },
+  { id: 'wcag22_only',       label: 'WCAG 2.2', desc: 'Accessibility Only' },
+]
+
 export function NewSessionForm() {
   const [open, setOpen] = useState(false)
 
@@ -53,15 +59,28 @@ export function NewSessionForm() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-slate-400">Audit Profile</label>
-            <select
-              name="auditProfile"
-              className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 focus:border-violet-500 focus:outline-none"
-            >
-              <option value="nng">NNG — Nielsen's 10 Usability Heuristics</option>
-              <option value="ecommerce_baymard">Ecommerce — Baymard Institute Guidelines</option>
-              <option value="wcag22_only">WCAG 2.2 Accessibility Only</option>
-            </select>
+            <label className="mb-2 block text-xs font-semibold text-slate-400">
+              Audit Profiles <span className="text-slate-600 font-normal">(select one or more)</span>
+            </label>
+            <div className="space-y-2">
+              {PROFILES.map(p => (
+                <label
+                  key={p.id}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 hover:border-violet-500/50 hover:bg-slate-800/80 transition-colors has-[:checked]:border-violet-500 has-[:checked]:bg-violet-500/10"
+                >
+                  <input
+                    type="checkbox"
+                    name={p.id}
+                    defaultChecked={p.id === 'nng'}
+                    className="mt-0.5 accent-violet-500"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-slate-200">{p.label}</p>
+                    <p className="text-xs text-slate-500">{p.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
 
