@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
       ok: true,
       stepId,
       flowId,
-      workspaceUrl: `/sessions/${payload.sessionId}/flows/${flowId}/steps/${stepId}`,
+      workspaceUrl: `${req.nextUrl.origin}/sessions/${payload.sessionId}/flows/${flowId}/steps/${stepId}`,
       scrubStats,
       findings: {
         codified: codifiedFindings.length,
