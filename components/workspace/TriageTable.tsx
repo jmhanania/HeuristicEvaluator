@@ -30,6 +30,17 @@ function heuristicTag(f: Finding): string {
   return f.framework.toUpperCase()
 }
 
+const FRAMEWORK_STYLE: Record<string, string> = {
+  nng:     'bg-sky-500/20 text-sky-400',
+  baymard: 'bg-amber-500/20 text-amber-400',
+  wcag:    'bg-emerald-500/20 text-emerald-400',
+}
+const FRAMEWORK_LABEL: Record<string, string> = {
+  nng:     'NNG',
+  baymard: 'Baymard',
+  wcag:    'WCAG',
+}
+
 function parseBbox(raw: string | null): { x: number; y: number; width: number; height: number } | null {
   if (!raw) return null
   try {
@@ -313,7 +324,7 @@ export function TriageTable({ findings: allFindings, stepPath, onHover }: Props)
                 <th className="px-3 py-2 font-medium">Status</th>
                 <th className="px-3 py-2 font-medium">Severity</th>
                 <th className="px-2 py-2 font-medium">Src</th>
-                <th className="px-2 py-2 font-medium">H#</th>
+                <th className="px-2 py-2 font-medium">Framework</th>
                 <th className="px-3 py-2 font-medium">Finding</th>
                 <th className="px-3 py-2 font-medium">Evidence</th>
                 <th className="px-3 py-2 font-medium">Actions</th>
@@ -360,9 +371,14 @@ export function TriageTable({ findings: allFindings, stepPath, onHover }: Props)
                         </span>
                       </td>
 
-                      {/* Heuristic tag */}
+                      {/* Framework + heuristic */}
                       <td className="px-2 py-2">
-                        <span className="font-mono text-[10px] text-slate-500">{heuristicTag(f)}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${FRAMEWORK_STYLE[f.framework] ?? 'bg-slate-700 text-slate-400'}`}>
+                            {FRAMEWORK_LABEL[f.framework] ?? f.framework}
+                          </span>
+                          <span className="font-mono text-[10px] text-slate-500">{heuristicTag(f)}</span>
+                        </div>
                       </td>
 
                       {/* Title */}
