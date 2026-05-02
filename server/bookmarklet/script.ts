@@ -435,6 +435,21 @@ export function generateBookmarkletScript(origin: string): string {
         windowHeight: window.innerHeight,
         logging:      false,
         imageTimeout: 3000,
+        // Replace cross-origin images in the clone with a blank so they
+        // never taint the canvas. The real DOM is untouched.
+        onclone: function(clonedDoc) {
+          clonedDoc.querySelectorAll('img').forEach(function(img) {
+            try {
+              var src = img.getAttribute('src') || '';
+              if (!src) return;
+              var origin = new URL(src, window.location.href).origin;
+              if (origin !== window.location.origin) {
+                img.removeAttribute('src');
+                img.removeAttribute('srcset');
+              }
+            } catch(e) {}
+          });
+        },
       });
       // Restore panel immediately after capture
       host.style.display = '';
