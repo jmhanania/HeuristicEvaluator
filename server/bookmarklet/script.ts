@@ -104,6 +104,20 @@ export function generateBookmarkletScript(origin: string): string {
   ].join(';');
   document.body.appendChild(host);
 
+  // Make panel draggable by its header
+  var dragState = null;
+  document.addEventListener('mousemove', function(e) {
+    if (!dragState) return;
+    var nx = e.clientX - dragState.ox;
+    var ny = e.clientY - dragState.oy;
+    nx = Math.max(0, Math.min(window.innerWidth  - host.offsetWidth,  nx));
+    ny = Math.max(0, Math.min(window.innerHeight - host.offsetHeight, ny));
+    host.style.left = nx + 'px';
+    host.style.top  = ny + 'px';
+    host.style.right = 'auto';
+  });
+  document.addEventListener('mouseup', function() { dragState = null; });
+
   var shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = [
     '<style>',
@@ -117,8 +131,9 @@ export function generateBookmarkletScript(origin: string): string {
     '  #hdr{',
     '    display:flex;align-items:center;justify-content:space-between;',
     '    padding:14px 18px;background:#1e293b;border-bottom:1px solid #334155;',
-    '    user-select:none;',
+    '    user-select:none;cursor:grab;',
     '  }',
+    '  #hdr:active{cursor:grabbing;}',
     '  #hdr-left{display:flex;flex-direction:column;gap:2px;}',
     '  #hdr h1{font-size:13px;font-weight:700;color:#f1f5f9;letter-spacing:.02em;}',
     '  #hdr-url{font-size:10px;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;}',
@@ -169,14 +184,18 @@ export function generateBookmarkletScript(origin: string): string {
     '  #status.err{color:#f87171;}',
     '  #status.ok{color:#4ade80;}',
     '  /* Results */',
-    '  #results{display:none;background:#0d1929;border-radius:8px;padding:12px;margin-top:2px;}',
-    '  .row{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-bottom:6px;}',
-    '  .row:last-child{margin-bottom:0;}',
-    '  .row .k{color:#64748b;}',
-    '  .row .v{font-weight:700;color:#e2e8f0;}',
-    '  .v.warn{color:#fbbf24;}',
-    '  .v.good{color:#4ade80;}',
-    '  .v.crit{color:#f87171;}',
+    '  #results{display:none;background:#0d1929;border-radius:8px;padding:14px;margin-top:2px;}',
+    '  .res-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}',
+    '  .res-cell{background:#0f172a;border-radius:6px;padding:8px 10px;}',
+    '  .res-num{font-size:20px;font-weight:800;color:#e2e8f0;line-height:1;}',
+    '  .res-lbl{font-size:10px;color:#475569;margin-top:3px;}',
+    '  .res-num.warn{color:#fbbf24;}',
+    '  .res-num.good{color:#4ade80;}',
+    '  .res-num.crit{color:#f87171;}',
+    '  .res-link{display:block;text-align:center;font-size:12px;font-weight:600;',
+    '    color:#818cf8;text-decoration:none;padding:8px;border-radius:6px;',
+    '    background:#1e293b;transition:background .15s;}',
+    '  .res-link:hover{background:#334155;}',
     '</style>',
     '<div id="panel">',
     '  <div id="hdr">',
@@ -230,6 +249,14 @@ export function generateBookmarkletScript(origin: string): string {
 
   // Show current page URL in header
   q('hdr-url').textContent = window.location.hostname + window.location.pathname.slice(0, 30);
+
+  // Drag to reposition
+  q('hdr').addEventListener('mousedown', function(e) {
+    if (e.target === q('close')) return;
+    var rect = host.getBoundingClientRect();
+    dragState = { ox: e.clientX - rect.left, oy: e.clientY - rect.top };
+    e.preventDefault();
+  });
 
   function setStatus(msg, type) {
     statusEl.textContent = msg || '';
@@ -509,24 +536,27 @@ export function generateBookmarkletScript(origin: string): string {
   }
 
   function showResults(data) {
-    setStatus('Done.', 'ok');
+    setStatus('Done!', 'ok');
     var f = data.findings || {};
     var ai = f.ai || {};
+    var total = f.total || 0;
+    var unverified = ai.unverified || 0;
     resultsEl.style.display = 'block';
-    resultsEl.innerHTML = [
-      row('Codified issues', f.codified || 0, ''),
-      row('AI confirmed',    ai.confirmed  || 0, ''),
-      row('AI unverified',   ai.unverified || 0, ai.unverified ? 'warn' : ''),
-      row('Total findings',  f.total || 0, f.total > 0 ? 'good' : ''),
-      '<div class="row" style="margin-top:6px;">',
-      '  <span class="k" style="color:#3b82f6;font-size:10px;">Open workspace to triage &rarr;</span>',
-      '</div>',
-    ].join('');
+    resultsEl.innerHTML =
+      '<div class="res-grid">'
+      + cell(f.codified || 0,   'Codified', '')
+      + cell(ai.confirmed || 0, 'AI confirmed', ai.confirmed > 0 ? 'good' : '')
+      + cell(unverified,        'AI unverified', unverified > 0 ? 'warn' : '')
+      + cell(total,             'Total findings', total > 0 ? 'good' : '')
+      + '</div>'
+      + (data.workspaceUrl
+        ? '<a class="res-link" href="' + data.workspaceUrl + '" target="_blank">Open workspace to triage &rarr;</a>'
+        : '<div class="res-link" style="color:#475569;cursor:default;">Open the app to triage findings</div>');
   }
 
-  function row(label, value, cls) {
-    return '<div class="row"><span class="k">' + label + '</span>'
-      + '<span class="v ' + cls + '">' + value + '</span></div>';
+  function cell(num, label, cls) {
+    return '<div class="res-cell"><div class="res-num ' + cls + '">' + num + '</div>'
+      + '<div class="res-lbl">' + label + '</div></div>';
   }
 
   // ── 7. INIT ───────────────────────────────────────────────────────────────
